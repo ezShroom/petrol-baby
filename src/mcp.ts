@@ -14,13 +14,19 @@ import { KeyType } from './types/KeyType'
 const BASE_URL = 'https://www.fuel-finder.service.gov.uk/api'
 
 export class PetrolBabyObject extends McpAgent<Env> {
-	server = new McpServer({
+	override server = new McpServer({
 		name: 'petrol-baby',
 		version
 	})
 
-	storage: DurableObjectStorage
-	db: DrizzleSqliteDODatabase<Record<string, unknown>>
+	private storage: DurableObjectStorage
+	private db: DrizzleSqliteDODatabase<Record<string, unknown>>
+
+	private refreshToken?: string
+	private accessToken?: {
+		value: string
+		expires: Date
+	}
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env)
@@ -69,7 +75,19 @@ export class PetrolBabyObject extends McpAgent<Env> {
 					throw new Error(generateResults.error)
 				if (!generateResults.success) throw new Error(generateResults.message)
 
-				console.log(generateResults)
+				this.refreshToken = generateResults.data.refresh_token
+				this.accessToken = {
+					value: generateResults.data.access_token,
+					expires: new Date(Date.now() + generateResults.data.expires_in * 1000)
+				}
+				await this.db.insert(keys).values([
+					{ type: KeyType.Refresh, key: this.refreshToken },
+					{
+						type: KeyType.Access,
+						key: this.accessToken.value,
+						expires: this.accessToken.expires
+					}
+				])
 			}
 		})
 	}
