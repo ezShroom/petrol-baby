@@ -6,6 +6,7 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "style": "prettier -c .",
