@@ -8,6 +8,13 @@
       "when": 1775061355163,
       "tag": "0000_premium_wolverine",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1775080131941,
+      "tag": "0001_careful_the_liberteens",
+      "breakpoints": true
     }
   ]
 }

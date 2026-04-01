@@ -1,12 +1,24 @@
 import type { DrizzleSqliteDODatabase } from 'drizzle-orm/durable-sqlite'
-import { keys } from './db/schema'
+import { key } from './db/schema'
 import { KeyType } from './types/KeyType'
+import { baseUrl, USER_AGENT } from './constants'
 
-const BASE_URL = 'https://www.fuel-finder.service.gov.uk/api'
+type FuelFinderTokenPayload = {
+	access_token?: string
+	refresh_token?: string
+	expires_in?: number
+}
+
+type FuelFinderOAuthResponse = {
+	error?: string
+	success?: boolean
+	message?: string
+	data?: FuelFinderTokenPayload
+} & FuelFinderTokenPayload
 
 export class FuelFinderOAuth {
-	private refreshToken?: string
-	private accessToken?: {
+	public refreshToken?: string
+	public accessToken?: {
 		value: string
 		expires: Date
 	}
@@ -14,12 +26,11 @@ export class FuelFinderOAuth {
 
 	constructor(
 		private readonly db: DrizzleSqliteDODatabase<Record<string, unknown>>,
-		private readonly env: Env,
-		private readonly userAgent: string
+		private readonly env: Env
 	) {}
 
 	async initialize(initialAccessTokenRefreshWindowMs: number): Promise<void> {
-		const retrievedKeys = await this.db.select().from(keys)
+		const retrievedKeys = await this.db.select().from(key)
 		const refreshKey = retrievedKeys.find(
 			(retrievedKey) => retrievedKey.type === KeyType.Refresh
 		)
@@ -80,14 +91,14 @@ export class FuelFinderOAuth {
 		expires: Date
 	}): Promise<void> {
 		await this.db
-			.insert(keys)
+			.insert(key)
 			.values({
 				type: KeyType.Access,
 				key: accessToken.value,
 				expires: accessToken.expires
 			})
 			.onConflictDoUpdate({
-				target: keys.type,
+				target: key.type,
 				set: {
 					key: accessToken.value,
 					expires: accessToken.expires
@@ -95,31 +106,35 @@ export class FuelFinderOAuth {
 			})
 	}
 
-	private async generateAccessAndRefreshTokens(): Promise<void> {
-		const response = await fetch(BASE_URL + '/v1/oauth/generate_access_token', {
-			method: 'POST',
-			headers: {
-				Accept: 'application/json',
-				'Content-Type': 'application/json',
-				'User-Agent': this.userAgent
-			},
-			body: JSON.stringify({
-				client_id: this.env.FUEL_FINDER_CLIENT_ID,
-				client_secret: this.env.FUEL_FINDER_CLIENT_SECRET
-			})
-		})
-		const generateResults = (await response.json()) as {
-			error?: string
-			success?: boolean
-			message?: string
-			data?: {
-				access_token?: string
-				refresh_token?: string
-				expires_in?: number
-			}
-		}
+	private getTokenPayload(results: FuelFinderOAuthResponse): FuelFinderTokenPayload {
+		return results.data ?? results
+	}
 
-		if (!response.ok || !generateResults.success || !generateResults.data) {
+	private async generateAccessAndRefreshTokens(): Promise<void> {
+		const response = await fetch(
+			baseUrl(this.env) + '/v1/oauth/generate_access_token',
+			{
+				method: 'POST',
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': 'application/json',
+					'User-Agent': USER_AGENT
+				},
+				body: JSON.stringify({
+					client_id: this.env.FUEL_FINDER_CLIENT_ID,
+					client_secret: this.env.FUEL_FINDER_CLIENT_SECRET
+				})
+			}
+		)
+		const generateResults =
+			(await response.json()) as FuelFinderOAuthResponse
+		const generatePayload = this.getTokenPayload(generateResults)
+
+		if (
+			!response.ok ||
+			generateResults.success === false ||
+			!generatePayload
+		) {
 			throw new Error(
 				generateResults.error ??
 					generateResults.message ??
@@ -128,20 +143,20 @@ export class FuelFinderOAuth {
 		}
 
 		if (
-			typeof generateResults.data.access_token !== 'string' ||
-			typeof generateResults.data.refresh_token !== 'string' ||
-			typeof generateResults.data.expires_in !== 'number'
+			typeof generatePayload.access_token !== 'string' ||
+			typeof generatePayload.refresh_token !== 'string' ||
+			typeof generatePayload.expires_in !== 'number'
 		) {
 			throw new Error('Fuel Finder generate_access_token returned invalid data')
 		}
 
-		this.refreshToken = generateResults.data.refresh_token
+		this.refreshToken = generatePayload.refresh_token
 		this.accessToken = {
-			value: generateResults.data.access_token,
-			expires: new Date(Date.now() + generateResults.data.expires_in * 1000)
+			value: generatePayload.access_token,
+			expires: new Date(Date.now() + generatePayload.expires_in * 1000)
 		}
 
-		await this.db.insert(keys).values([
+		await this.db.insert(key).values([
 			{ type: KeyType.Refresh, key: this.refreshToken },
 			{
 				type: KeyType.Access,
@@ -158,13 +173,13 @@ export class FuelFinderOAuth {
 		}
 
 		const response = await fetch(
-			BASE_URL + '/v1/oauth/regenerate_access_token',
+			baseUrl(this.env) + '/v1/oauth/regenerate_access_token',
 			{
 				method: 'POST',
 				headers: {
 					Accept: 'application/json',
 					'Content-Type': 'application/json',
-					'User-Agent': this.userAgent
+					'User-Agent': USER_AGENT
 				},
 				body: JSON.stringify({
 					client_id: this.env.FUEL_FINDER_CLIENT_ID,
@@ -172,12 +187,9 @@ export class FuelFinderOAuth {
 				})
 			}
 		)
-		const regenerateResults = (await response.json()) as {
-			error?: string
-			message?: string
-			access_token?: string
-			expires_in?: number
-		}
+		const regenerateResults =
+			(await response.json()) as FuelFinderOAuthResponse
+		const regeneratePayload = this.getTokenPayload(regenerateResults)
 
 		if (!response.ok) {
 			throw new Error(
@@ -188,17 +200,17 @@ export class FuelFinderOAuth {
 		}
 
 		if (
-			typeof regenerateResults.access_token !== 'string' ||
-			typeof regenerateResults.expires_in !== 'number'
+			typeof regeneratePayload.access_token !== 'string' ||
+			typeof regeneratePayload.expires_in !== 'number'
 		) {
 			throw new Error(
-				'Fuel Finder regenerate_access_token returned invalid data'
+				`Fuel Finder regenerate_access_token returned invalid data: ${JSON.stringify(regenerateResults)}`
 			)
 		}
 
 		this.accessToken = {
-			value: regenerateResults.access_token,
-			expires: new Date(Date.now() + regenerateResults.expires_in * 1000)
+			value: regeneratePayload.access_token,
+			expires: new Date(Date.now() + regeneratePayload.expires_in * 1000)
 		}
 
 		await this.persistAccessToken(this.accessToken)
