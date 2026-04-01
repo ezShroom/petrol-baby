@@ -1,0 +1,21 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "petrol-baby",
+	"main": "src/index.ts",
+	"compatibility_date": "2026-04-01",
+	"workers_dev": false,
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "PETROL_BABY_OBJECT",
+				"class_name": "PetrolBabyObject"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": ["PetrolBabyObject"]
+		}
+	]
+}
