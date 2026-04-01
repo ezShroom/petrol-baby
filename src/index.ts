@@ -1,6 +1,8 @@
 import { PetrolBabyObject } from './mcp'
+import { createGlobalDurableObjectMcpRouter } from './mcp-routing'
 
-const mcpHandler = PetrolBabyObject.serve('/mcp', {
+const mcpRouter = createGlobalDurableObjectMcpRouter({
+	basePath: '/mcp',
 	binding: 'PETROL_BABY_OBJECT'
 })
 
@@ -8,7 +10,7 @@ export default {
 	async fetch(
 		request: Request,
 		env: Env,
-		ctx: ExecutionContext
+		_ctx: ExecutionContext
 	): Promise<Response> {
 		const url = new URL(request.url)
 
@@ -20,7 +22,11 @@ export default {
 			})
 		}
 
-		return mcpHandler.fetch(request, env, ctx)
+		if (mcpRouter.matches(url.pathname)) {
+			return mcpRouter.fetch(request, env)
+		}
+
+		return new Response('Not found', { status: 404 })
 	}
 } satisfies ExportedHandler<Env>
 
