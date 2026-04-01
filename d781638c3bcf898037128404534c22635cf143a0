@@ -1,0 +1,36 @@
+AGENTS.md
+  62714bdc92853d26 1-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.3",
+  "base_commit_sha": "d781638c3bcf898037128404534c22635cf143a0",
+  "prompts": {
+    "62714bdc92853d26": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d4a81-9720-7d93-ad0c-c92c473530f8",
+        "model": "gpt-5.4"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 18,
+      "total_deletions": 0,
+      "accepted_lines": 16,
+      "overriden_lines": 0
+    },
+    "8f49d1ad7be88f07": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_2b5299a58ffeR8DlQMNl0xHc72",
+        "model": "openrouter/anthropic/claude-opus-4.6"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 830,
+      "total_deletions": 0,
+      "accepted_lines": 0,
+      "overriden_lines": 0
+    }
+  }
+}
