@@ -8,10 +8,10 @@ import {
 } from 'drizzle-orm/durable-sqlite'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import migrations from './db/generated/migrations.js'
-import { keys } from './db/schema'
-import { KeyType } from './types/KeyType'
+import { FuelFinderOAuth } from './oauth.js'
+import { ms } from 'ms'
 
-const BASE_URL = 'https://www.fuel-finder.service.gov.uk/api'
+const INITIAL_ACCESS_TOKEN_REFRESH_WINDOW_MS = ms('10m')
 
 export class PetrolBabyObject extends McpAgent<Env> {
 	override server = new McpServer({
@@ -21,74 +21,17 @@ export class PetrolBabyObject extends McpAgent<Env> {
 
 	private storage: DurableObjectStorage
 	private db: DrizzleSqliteDODatabase<Record<string, unknown>>
-
-	private refreshToken?: string
-	private accessToken?: {
-		value: string
-		expires: Date
-	}
+	private oauth: FuelFinderOAuth
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env)
 		this.storage = ctx.storage
 		this.db = drizzle(this.storage, { logger: false })
+		this.oauth = new FuelFinderOAuth(this.db, env, `petrol-baby/${version}`)
 
 		ctx.blockConcurrencyWhile(async () => {
 			await migrate(this.db, migrations)
-		})
-		ctx.blockConcurrencyWhile(async () => {
-			const retrievedKeys = await this.db.select().from(keys)
-			if (
-				!retrievedKeys.some(
-					(retrievedKey) => retrievedKey.type === KeyType.Refresh
-				)
-			) {
-				const generateResults:
-					| { error: string }
-					| { success: false; message: string }
-					| {
-							success: true
-							data: {
-								access_token: string
-								token_type: string
-								expires_in: number
-								refresh_token: string
-							}
-							message: string
-					  } = await (
-					await fetch(BASE_URL + '/v1/oauth/generate_access_token', {
-						method: 'POST',
-						headers: {
-							Accept: 'application/json',
-							'Content-Type': 'application/json',
-							'User-Agent': `petrol-baby/${version}`
-						},
-						body: JSON.stringify({
-							client_id: env.FUEL_FINDER_CLIENT_ID,
-							client_secret: env.FUEL_FINDER_CLIENT_SECRET
-						})
-					})
-				).json()
-
-				// We can't continue if this fails
-				if (!('success' in generateResults))
-					throw new Error(generateResults.error)
-				if (!generateResults.success) throw new Error(generateResults.message)
-
-				this.refreshToken = generateResults.data.refresh_token
-				this.accessToken = {
-					value: generateResults.data.access_token,
-					expires: new Date(Date.now() + generateResults.data.expires_in * 1000)
-				}
-				await this.db.insert(keys).values([
-					{ type: KeyType.Refresh, key: this.refreshToken },
-					{
-						type: KeyType.Access,
-						key: this.accessToken.value,
-						expires: this.accessToken.expires
-					}
-				])
-			}
+			await this.oauth.initialize(INITIAL_ACCESS_TOKEN_REFRESH_WINDOW_MS)
 		})
 	}
 
