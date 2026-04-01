@@ -7,7 +7,7 @@ import {
 	type DrizzleSqliteDODatabase
 } from 'drizzle-orm/durable-sqlite'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
-import migrations from '@/db/generated/migrations.js'
+import migrations from './db/generated/migrations.js'
 import { keys } from './db/schema'
 import { KeyType } from './types/KeyType'
 
@@ -53,7 +53,9 @@ export class PetrolBabyObject extends McpAgent<Env> {
 					await fetch(BASE_URL + '/v1/oauth/generate_access_token', {
 						method: 'POST',
 						headers: {
-							'Content-Type': 'application/json'
+							Accept: 'application/json',
+							'Content-Type': 'application/json',
+							'User-Agent': `petrol-baby/${version}`
 						},
 						body: JSON.stringify({
 							client_id: env.FUEL_FINDER_CLIENT_ID,
@@ -62,7 +64,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 					})
 				).json()
 
-				// We can't continue like this
+				// We can't continue if this fails
 				if (!('success' in generateResults))
 					throw new Error(generateResults.error)
 				if (!generateResults.success) throw new Error(generateResults.message)
