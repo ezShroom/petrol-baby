@@ -10,7 +10,7 @@ involves two things:
 - **Making the data readable**: For parts of the data where it is intended for
   humans, such as trading names, brand names, and addresses, ensuring that they
   are in a more human-friendly format (for example: not all in shouty caps
-  unnecessarily, layed out with the correct value in each field).
+  unnecessarily, laid out with the correct value in each field).
 
 Fuel Finder only lists stations within the United Kingdom.
 
@@ -78,7 +78,7 @@ to be one (some stations are independent and have identical trading and brand
 names, for example).
 
 Use capitalisation that matches how the brand would most likely write it in
-**regular text**. For example, JET and BP use all caps in any text that
+**extended copy**. For example, JET and BP use all caps in any text that
 references them &mdash; Esso and Asda sometimes have signs in all-caps, but
 in fine print or in body text on their website, they would refer to themselves
 in Title Case, so this is the more appropriate choice.
