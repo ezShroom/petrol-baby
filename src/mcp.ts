@@ -12,7 +12,6 @@ import { FuelFinderOAuth } from './oauth'
 import { fuelStation } from './db/schema'
 import {
 	baseUrl,
-	INITIAL_ACCESS_TOKEN_REFRESH_WINDOW_MS,
 	PERSISTENT_ACCESS_TOKEN_REFRESH_WINDOW_MS,
 	REPORTING_URL,
 	USER_AGENT
@@ -20,6 +19,7 @@ import {
 import { StatusCodes } from 'http-status-codes'
 import { ms } from 'ms'
 import type { FuelFinderStation } from './types/FuelFinderStation.js'
+import { parseJsonResponse } from './response'
 
 export class PetrolBabyObject extends McpAgent<Env> {
 	override server = new McpServer({
@@ -39,7 +39,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 
 		ctx.blockConcurrencyWhile(async () => {
 			await migrate(this.db, migrations)
-			await this.oauth.initialize(INITIAL_ACCESS_TOKEN_REFRESH_WINDOW_MS)
+			await this.oauth.initialize()
 
 			const backfillRequired =
 				(await this.db.select().from(fuelStation).limit(1)).length === 0
@@ -83,7 +83,9 @@ export class PetrolBabyObject extends McpAgent<Env> {
 				return
 			}
 
-			const rawArr: FuelFinderStation[] = await result.json()
+			const rawArr = await parseJsonResponse<FuelFinderStation[]>(result, {
+				context: `Fuel Finder stations batch ${page}`
+			})
 			console.log(rawArr)
 
 			console.log(rawArr.length)

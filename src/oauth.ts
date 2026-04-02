@@ -2,6 +2,7 @@ import type { DrizzleSqliteDODatabase } from 'drizzle-orm/durable-sqlite'
 import { key } from './db/schema'
 import { KeyType } from './types/KeyType'
 import { baseUrl, USER_AGENT } from './constants'
+import { parseJsonResponse } from './response'
 
 type FuelFinderTokenPayload = {
 	access_token?: string
@@ -29,7 +30,7 @@ export class FuelFinderOAuth {
 		private readonly env: Env
 	) {}
 
-	async initialize(initialAccessTokenRefreshWindowMs: number): Promise<void> {
+	async initialize(): Promise<void> {
 		const retrievedKeys = await this.db.select().from(key)
 		const refreshKey = retrievedKeys.find(
 			(retrievedKey) => retrievedKey.type === KeyType.Refresh
@@ -48,11 +49,6 @@ export class FuelFinderOAuth {
 
 		if (!this.refreshToken) {
 			await this.generateAccessAndRefreshTokens()
-			return
-		}
-
-		if (this.accessTokenExpiresWithin(initialAccessTokenRefreshWindowMs)) {
-			await this.refreshAccessToken()
 		}
 	}
 
@@ -106,7 +102,9 @@ export class FuelFinderOAuth {
 			})
 	}
 
-	private getTokenPayload(results: FuelFinderOAuthResponse): FuelFinderTokenPayload {
+	private getTokenPayload(
+		results: FuelFinderOAuthResponse
+	): FuelFinderTokenPayload {
 		return results.data ?? results
 	}
 
@@ -126,15 +124,15 @@ export class FuelFinderOAuth {
 				})
 			}
 		)
-		const generateResults =
-			(await response.json()) as FuelFinderOAuthResponse
+		const generateResults = await parseJsonResponse<FuelFinderOAuthResponse>(
+			response,
+			{
+				context: 'Fuel Finder OAuth generate_access_token'
+			}
+		)
 		const generatePayload = this.getTokenPayload(generateResults)
 
-		if (
-			!response.ok ||
-			generateResults.success === false ||
-			!generatePayload
-		) {
+		if (!response.ok || generateResults.success === false || !generatePayload) {
 			throw new Error(
 				generateResults.error ??
 					generateResults.message ??
@@ -187,8 +185,12 @@ export class FuelFinderOAuth {
 				})
 			}
 		)
-		const regenerateResults =
-			(await response.json()) as FuelFinderOAuthResponse
+		const regenerateResults = await parseJsonResponse<FuelFinderOAuthResponse>(
+			response,
+			{
+				context: 'Fuel Finder OAuth regenerate_access_token'
+			}
+		)
 		const regeneratePayload = this.getTokenPayload(regenerateResults)
 
 		if (!response.ok) {
