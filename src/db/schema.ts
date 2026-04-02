@@ -1,6 +1,6 @@
+import type { DataRegion } from '@/types/DataRegion'
 import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { KeyType } from '../types/KeyType'
-import type { DataRegion } from '@/types/DataRegion'
 
 export const key = sqliteTable('key', {
 	type: integer().primaryKey().$type<KeyType>(),

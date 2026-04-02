@@ -2,5 +2,6 @@
 	"useTabs": true,
 	"singleQuote": true,
 	"semi": false,
-	"trailingComma": "none"
+	"trailingComma": "none",
+	"plugins": ["@ianvs/prettier-plugin-sort-imports"]
 }

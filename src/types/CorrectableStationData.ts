@@ -1,5 +1,5 @@
-import { ClosureType } from './ClosureType'
 import { z } from 'zod'
+import { ClosureType } from './ClosureType'
 
 export const OutputCorrectableStationDataSchema = z.object({
 	nodeIds: z.array(z.string()),

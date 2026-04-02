@@ -1,10 +1,10 @@
 import type { DrizzleSqliteDODatabase } from 'drizzle-orm/durable-sqlite'
-import { key } from './db/schema'
-import { KeyType } from './types/KeyType'
-import { baseUrl, USER_AGENT } from './constants'
-import { parseJsonResponse } from './response'
-import { patientFetch } from './patient_fetch'
 import { StatusCodes } from 'http-status-codes'
+import { baseUrl, USER_AGENT } from './constants'
+import { key } from './db/schema'
+import { patientFetch } from './patient_fetch'
+import { parseJsonResponse } from './response'
+import { KeyType } from './types/KeyType'
 
 type FuelFinderTokenPayload = {
 	access_token?: string
