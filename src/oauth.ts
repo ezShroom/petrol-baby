@@ -3,6 +3,8 @@ import { key } from './db/schema'
 import { KeyType } from './types/KeyType'
 import { baseUrl, USER_AGENT } from './constants'
 import { parseJsonResponse } from './response'
+import { patientFetch } from './patient_fetch'
+import { StatusCodes } from 'http-status-codes'
 
 type FuelFinderTokenPayload = {
 	access_token?: string
@@ -102,6 +104,21 @@ export class FuelFinderOAuth {
 			})
 	}
 
+	private async persistRefreshToken(refreshToken: string): Promise<void> {
+		await this.db
+			.insert(key)
+			.values({
+				type: KeyType.Refresh,
+				key: refreshToken
+			})
+			.onConflictDoUpdate({
+				target: key.type,
+				set: {
+					key: refreshToken
+				}
+			})
+	}
+
 	private getTokenPayload(
 		results: FuelFinderOAuthResponse
 	): FuelFinderTokenPayload {
@@ -109,7 +126,7 @@ export class FuelFinderOAuth {
 	}
 
 	private async generateAccessAndRefreshTokens(): Promise<void> {
-		const response = await fetch(
+		const response = await patientFetch(
 			baseUrl(this.env) + '/v1/oauth/generate_access_token',
 			{
 				method: 'POST',
@@ -154,13 +171,9 @@ export class FuelFinderOAuth {
 			expires: new Date(Date.now() + generatePayload.expires_in * 1000)
 		}
 
-		await this.db.insert(key).values([
-			{ type: KeyType.Refresh, key: this.refreshToken },
-			{
-				type: KeyType.Access,
-				key: this.accessToken.value,
-				expires: this.accessToken.expires
-			}
+		await Promise.all([
+			this.persistRefreshToken(this.refreshToken),
+			this.persistAccessToken(this.accessToken)
 		])
 	}
 
@@ -170,7 +183,7 @@ export class FuelFinderOAuth {
 			return
 		}
 
-		const response = await fetch(
+		const response = await patientFetch(
 			baseUrl(this.env) + '/v1/oauth/regenerate_access_token',
 			{
 				method: 'POST',
@@ -194,6 +207,10 @@ export class FuelFinderOAuth {
 		const regeneratePayload = this.getTokenPayload(regenerateResults)
 
 		if (!response.ok) {
+			if (response.status === StatusCodes.INTERNAL_SERVER_ERROR) {
+				await this.generateAccessAndRefreshTokens()
+				return
+			}
 			throw new Error(
 				regenerateResults.error ??
 					regenerateResults.message ??

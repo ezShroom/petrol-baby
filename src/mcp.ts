@@ -18,10 +18,11 @@ import {
 } from './constants'
 import { StatusCodes } from 'http-status-codes'
 import { ms } from 'ms'
-import type { FuelFinderStation } from './types/FuelFinderStation.js'
+import type { FuelFinderStation } from './types/FuelFinderStation'
 import { parseJsonResponse } from './response'
-import { DataRegion } from './types/DataRegion.js'
+import { DataRegion } from './types/DataRegion'
 import { type InferSelectModel } from 'drizzle-orm'
+import { patientFetch } from './patient_fetch.js'
 
 export class PetrolBabyObject extends McpAgent<Env> {
 	override server = new McpServer({
@@ -50,7 +51,8 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			const pricesMetadata = metadata.find(
 				(m) => m.region === DataRegion.Prices
 			)
-			await this.backfillAsNeeded(stationsMetadata, pricesMetadata)
+			// Do not await
+			this.backfillAsNeeded(stationsMetadata, pricesMetadata)
 		})
 	}
 
@@ -66,6 +68,11 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		}
 	}
 
+	async cleanStationData(stations: FuelFinderStation[]) {
+		// Pass 1: Fix coordinates
+		let mutableStations = structuredClone(stations)
+	}
+
 	async backfillStations() {
 		let page = 1
 		while (true) {
@@ -75,7 +82,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			if (!this.oauth.accessToken) {
 				return
 			}
-			const result = await fetch(
+			const result = await patientFetch(
 				baseUrl(this.env) + `/v1/pfs?batch-number=${page}`,
 				{
 					headers: {
@@ -108,6 +115,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			const rawArr = await parseJsonResponse<FuelFinderStation[]>(result, {
 				context: `Fuel Finder stations batch ${page}`
 			})
+			console.log(rawArr)
 
 			// TODO: Do something with our beautiful data
 
@@ -117,7 +125,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 	}
 
 	async init(): Promise<void> {
-		const server = this.server as unknown as McpServer
+		const server = this.server
 
 		server.registerTool(
 			'issue_reporting_url',
