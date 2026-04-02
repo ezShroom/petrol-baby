@@ -1,5 +1,6 @@
 import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { KeyType } from '../types/KeyType'
+import type { DataRegion } from '@/types/DataRegion'
 
 export const key = sqliteTable('key', {
 	type: integer().primaryKey().$type<KeyType>(),
@@ -50,4 +51,9 @@ export const pricingEvent = sqliteTable('pricing_event', {
 		.notNull(),
 	timestamp: integer({ mode: 'timestamp' }).notNull(),
 	pricePence: real().notNull()
+})
+export const dataMetadata = sqliteTable('data_metadata', {
+	region: integer().primaryKey().$type<DataRegion>(),
+	backfilledAt: integer({ mode: 'timestamp' }).notNull(),
+	lastUpdatedAt: integer({ mode: 'timestamp' })
 })

@@ -9,7 +9,7 @@ import {
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import migrations from './db/generated/migrations.js'
 import { FuelFinderOAuth } from './oauth'
-import { fuelStation } from './db/schema'
+import { dataMetadata } from './db/schema'
 import {
 	baseUrl,
 	PERSISTENT_ACCESS_TOKEN_REFRESH_WINDOW_MS,
@@ -20,6 +20,8 @@ import { StatusCodes } from 'http-status-codes'
 import { ms } from 'ms'
 import type { FuelFinderStation } from './types/FuelFinderStation.js'
 import { parseJsonResponse } from './response'
+import { DataRegion } from './types/DataRegion.js'
+import { type InferSelectModel } from 'drizzle-orm'
 
 export class PetrolBabyObject extends McpAgent<Env> {
 	override server = new McpServer({
@@ -41,15 +43,31 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			await migrate(this.db, migrations)
 			await this.oauth.initialize()
 
-			const backfillRequired =
-				(await this.db.select().from(fuelStation).limit(1)).length === 0
-			if (backfillRequired) this.backfill()
+			const metadata = await this.db.select().from(dataMetadata)
+			const stationsMetadata = metadata.find(
+				(m) => m.region === DataRegion.Stations
+			)
+			const pricesMetadata = metadata.find(
+				(m) => m.region === DataRegion.Prices
+			)
+			await this.backfillAsNeeded(stationsMetadata, pricesMetadata)
 		})
 	}
 
-	async backfill() {
-		// Stage 1: Backfill stations
-		let page = 2
+	async backfillAsNeeded(
+		stationsMetadata: InferSelectModel<typeof dataMetadata> | undefined,
+		pricesMetadata: InferSelectModel<typeof dataMetadata> | undefined
+	) {
+		if (!stationsMetadata) {
+			await this.backfillStations()
+		}
+		if (!pricesMetadata) {
+			// await this.backfillPrices()
+		}
+	}
+
+	async backfillStations() {
+		let page = 1
 		while (true) {
 			await this.oauth.ensureAccessToken(
 				PERSISTENT_ACCESS_TOKEN_REFRESH_WINDOW_MS
@@ -68,6 +86,10 @@ export class PetrolBabyObject extends McpAgent<Env> {
 					}
 				}
 			)
+			if (result.status === StatusCodes.NOT_FOUND) {
+				console.log('No more pages')
+				break
+			}
 			if (result.status === StatusCodes.TOO_MANY_REQUESTS) {
 				console.warn('Ratelimited!')
 				console.debug(await result.text())
@@ -86,15 +108,12 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			const rawArr = await parseJsonResponse<FuelFinderStation[]>(result, {
 				context: `Fuel Finder stations batch ${page}`
 			})
-			console.log(rawArr)
 
-			console.log(rawArr.length)
-			// TODO: Not good enough logic -- there can be less than 500
-			if (rawArr.length < 500) break
+			// TODO: Do something with our beautiful data
+
 			page++
 		}
-		console.log(`Station backfill done (stopped at page ${page})`)
-		// Stage 2: Backfill prices
+		console.log(`Station backfill done (stopped at page ${page - 1})`)
 	}
 
 	async init(): Promise<void> {
@@ -105,7 +124,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			{
 				title: 'Issue reporting URL',
 				description:
-					'Get the URL for reporting issues with data. Use this only if the user specifically says that data about fuel prices is incorrect.',
+					'Get the URL for reporting issues with data. Use this only if the user specifically says that data returned from fuel.baby is incorrect or outdated.',
 				outputSchema: {
 					url: z.url()
 				}
