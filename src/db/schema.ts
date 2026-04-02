@@ -12,7 +12,6 @@ export const fuelStation = sqliteTable('fuel_station', {
 	phone: text(),
 	tradingName: text(),
 	brandName: text(),
-	matchingNames: integer({ mode: 'boolean' }),
 	temporarilyClosed: integer({ mode: 'boolean' }),
 	permanentlyClosed: integer({ mode: 'boolean' }),
 	isMotorwayService: integer({ mode: 'boolean' }),

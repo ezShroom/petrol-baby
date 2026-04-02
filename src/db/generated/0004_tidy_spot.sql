@@ -1,0 +1,1 @@
+ALTER TABLE `fuel_station` DROP COLUMN `matchingNames`;

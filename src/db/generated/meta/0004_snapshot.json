@@ -1,0 +1,342 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "18f1066e-0a64-4424-8762-f9f1dccd27b8",
+  "prevId": "0c710a50-efd3-4d24-818a-1d79227b8f64",
+  "tables": {
+    "available_fuel_type": {
+      "name": "available_fuel_type",
+      "columns": {
+        "associationId": {
+          "name": "associationId",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "nodeId": {
+          "name": "nodeId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "typeCode": {
+          "name": "typeCode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "available_fuel_type_nodeId_fuel_station_nodeId_fk": {
+          "name": "available_fuel_type_nodeId_fuel_station_nodeId_fk",
+          "tableFrom": "available_fuel_type",
+          "tableTo": "fuel_station",
+          "columnsFrom": [
+            "nodeId"
+          ],
+          "columnsTo": [
+            "nodeId"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "available_fuel_type_typeCode_known_type_typeCode_fk": {
+          "name": "available_fuel_type_typeCode_known_type_typeCode_fk",
+          "tableFrom": "available_fuel_type",
+          "tableTo": "known_type",
+          "columnsFrom": [
+            "typeCode"
+          ],
+          "columnsTo": [
+            "typeCode"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "data_metadata": {
+      "name": "data_metadata",
+      "columns": {
+        "region": {
+          "name": "region",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "backfilledAt": {
+          "name": "backfilledAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "lastUpdatedAt": {
+          "name": "lastUpdatedAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "fuel_station": {
+      "name": "fuel_station",
+      "columns": {
+        "nodeId": {
+          "name": "nodeId",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tradingName": {
+          "name": "tradingName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "brandName": {
+          "name": "brandName",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "temporarilyClosed": {
+          "name": "temporarilyClosed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "permanentlyClosed": {
+          "name": "permanentlyClosed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isMotorwayService": {
+          "name": "isMotorwayService",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "isSupermarketService": {
+          "name": "isSupermarketService",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "address1": {
+          "name": "address1",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "address2": {
+          "name": "address2",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "city": {
+          "name": "city",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "country": {
+          "name": "country",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "county": {
+          "name": "county",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "postcode": {
+          "name": "postcode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "latitude": {
+          "name": "latitude",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "longitude": {
+          "name": "longitude",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "key": {
+      "name": "key",
+      "columns": {
+        "type": {
+          "name": "type",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires": {
+          "name": "expires",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "known_type": {
+      "name": "known_type",
+      "columns": {
+        "typeCode": {
+          "name": "typeCode",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "pricing_event": {
+      "name": "pricing_event",
+      "columns": {
+        "nodeId": {
+          "name": "nodeId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "typeCode": {
+          "name": "typeCode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pricePence": {
+          "name": "pricePence",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "pricing_event_nodeId_fuel_station_nodeId_fk": {
+          "name": "pricing_event_nodeId_fuel_station_nodeId_fk",
+          "tableFrom": "pricing_event",
+          "tableTo": "fuel_station",
+          "columnsFrom": [
+            "nodeId"
+          ],
+          "columnsTo": [
+            "nodeId"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "cascade"
+        },
+        "pricing_event_typeCode_known_type_typeCode_fk": {
+          "name": "pricing_event_typeCode_known_type_typeCode_fk",
+          "tableFrom": "pricing_event",
+          "tableTo": "known_type",
+          "columnsFrom": [
+            "typeCode"
+          ],
+          "columnsTo": [
+            "typeCode"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}
