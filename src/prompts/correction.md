@@ -119,8 +119,8 @@ ensure they can conform to our schema.
 
 ### `null` values
 
-The source data uses `null` when data is missing. When you produce output, you
-should instead make missing values `undefined` by omitting them.
+The source data uses `null` when data is missing. You should reflect this in
+your output but only in compliance with the schema.
 
 ## Examples
 
@@ -326,3 +326,13 @@ We will produce the output:
 ```
 
 </fixed_output>
+
+> [!DANGER]
+> While Markdown code tags have been included in this prompt, your response
+> should be **JSON ONLY** and not wrapped or surrounded in any way. Your
+> response is being used as part of an automated system and will not be seen
+> directly by a human user.
+
+> [!DANGER]
+> Remember that **THE OUTPUT SCHEMA IS DIFFERENT TO THE INPUT SCHEMA**. You
+> should not output input-only data like `isMotorwayServiceStation`.

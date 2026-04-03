@@ -36,11 +36,11 @@ export const OutputCorrectableStationDataSchema = z.object({
 		.describe(
 			"A human-friendly **brand name only** - for example, 'Asda' or 'JET'."
 		),
-	phone: z.string().optional(),
+	phone: z.string().nullable(),
 	address: z.object({
 		address1: z.string().describe('Address Line 1'),
-		address2: z.string().optional().describe('Address line 2'),
-		city: z.string().optional(),
+		address2: z.string().nullable().describe('Address line 2'),
+		city: z.string().nullable(),
 		country: z.union([
 			z.literal('England'),
 			z.literal('Wales'),
@@ -57,9 +57,14 @@ export const OutputCorrectableStationDataSchema = z.object({
 	}),
 	potentialDuplicates: z
 		.array(z.hex())
-		.optional()
+		.nullable()
 		.describe('Array of node IDs of potential duplicate stations')
 })
+export const OutputCorrectableStationDataArrayJSONSchema = z.toJSONSchema(
+	z
+		.array(OutputCorrectableStationDataSchema)
+		.meta({ name: 'cleanedData', strict: true })
+)
 export type OutputCorrectableStationData = z.infer<
 	typeof OutputCorrectableStationDataSchema
 >

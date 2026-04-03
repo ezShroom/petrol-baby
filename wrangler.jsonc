@@ -18,5 +18,17 @@
 			"tag": "v1",
 			"new_sqlite_classes": ["PetrolBabyObject"]
 		}
+	],
+	"rules": [
+		{
+			"type": "Text",
+			"globs": ["**/prompts/*.md"],
+			"fallthrough": true
+		},
+		{
+			"type": "Text",
+			"globs": ["**/*.sql"],
+			"fallthrough": true
+		}
 	]
 }
