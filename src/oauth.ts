@@ -198,6 +198,35 @@ export class FuelFinderOAuth {
 				})
 			}
 		)
+
+		// Check for server errors before attempting to parse JSON, since
+		// maintenance pages return HTML which would throw in parseJsonResponse
+		// and prevent the fallback from ever being reached.
+		if (!response.ok) {
+			if (response.status === StatusCodes.INTERNAL_SERVER_ERROR) {
+				console.warn(
+					'regenerate_access_token returned 500, falling back to generate_access_token'
+				)
+				await this.generateAccessAndRefreshTokens()
+				return
+			}
+			// For other error statuses, try to parse JSON for a useful error message
+			let errorMessage = `Failed to regenerate Fuel Finder access token (${response.status})`
+			try {
+				const errorResults = await parseJsonResponse<FuelFinderOAuthResponse>(
+					response,
+					{
+						context: 'Fuel Finder OAuth regenerate_access_token'
+					}
+				)
+				errorMessage =
+					errorResults.error ?? errorResults.message ?? errorMessage
+			} catch {
+				// JSON parsing failed, use the default error message
+			}
+			throw new Error(errorMessage)
+		}
+
 		const regenerateResults = await parseJsonResponse<FuelFinderOAuthResponse>(
 			response,
 			{
@@ -205,18 +234,6 @@ export class FuelFinderOAuth {
 			}
 		)
 		const regeneratePayload = this.getTokenPayload(regenerateResults)
-
-		if (!response.ok) {
-			if (response.status === StatusCodes.INTERNAL_SERVER_ERROR) {
-				await this.generateAccessAndRefreshTokens()
-				return
-			}
-			throw new Error(
-				regenerateResults.error ??
-					regenerateResults.message ??
-					`Failed to regenerate Fuel Finder access token (${response.status})`
-			)
-		}
 
 		if (
 			typeof regeneratePayload.access_token !== 'string' ||
