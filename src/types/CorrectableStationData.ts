@@ -25,7 +25,9 @@ export type InputCorrectableStationData = z.infer<
 >
 
 export const OutputCorrectableStationDataSchema = z.object({
-	nodeId: z.hex().describe('Fuel Finder node ID associated with this station'),
+	nodeId: z
+		.string()
+		.describe('Fuel Finder node ID associated with this station'),
 	tradingName: z
 		.string()
 		.describe(
@@ -56,14 +58,15 @@ export const OutputCorrectableStationDataSchema = z.object({
 		longitude: z.number()
 	}),
 	potentialDuplicates: z
-		.array(z.hex())
+		.array(z.string())
 		.nullable()
 		.describe('Array of node IDs of potential duplicate stations')
 })
 export const OutputCorrectableStationDataArrayJSONSchema = z.toJSONSchema(
-	z
-		.array(OutputCorrectableStationDataSchema)
-		.meta({ name: 'cleanedData', strict: true })
+	z.object({
+		stations: z.array(OutputCorrectableStationDataSchema)
+	}),
+	{ target: 'openapi-3.0' }
 )
 export type OutputCorrectableStationData = z.infer<
 	typeof OutputCorrectableStationDataSchema

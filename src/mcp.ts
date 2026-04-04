@@ -1,7 +1,6 @@
 import cleanupPrompt from '@/prompts/correction.md'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { OpenRouter } from '@openrouter/sdk'
-import type { ChatJsonSchemaConfig } from '@openrouter/sdk/models'
 import { McpAgent } from 'agents/mcp'
 import { type InferSelectModel } from 'drizzle-orm'
 import {
@@ -106,21 +105,21 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			})
 		)
 		const response = await this.openrouterClient.chat.send({
-			httpReferer: 'https://fuel.baby/',
-			appTitle: 'fuel.baby',
+			httpReferer: 'https://petrol.baby/',
+			appTitle: 'petrol.baby',
 			chatRequest: {
-				model: 'openai/gpt-5.4-mini',
-				provider: {
-					// requireParameters: true
-				},
+				model: 'gpt-5.4',
 				messages: [
 					{ role: 'system', content: cleanupPrompt },
 					{ role: 'user', content: JSON.stringify(correctableData) }
 				],
 				responseFormat: {
 					type: 'json_schema',
-					jsonSchema:
-						OutputCorrectableStationDataArrayJSONSchema as unknown as ChatJsonSchemaConfig
+					jsonSchema: {
+						name: 'cleanedData',
+						strict: true,
+						schema: OutputCorrectableStationDataArrayJSONSchema
+					}
 				},
 				reasoning: { effort: 'none' },
 				plugins: [{ id: 'response-healing' }]
@@ -128,9 +127,8 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		})
 		console.log('doing it')
 		try {
-			return JSON.parse(
-				response.choices[0]?.message.content
-			) as OutputCorrectableStationData
+			return JSON.parse(response.choices[0]?.message.content)
+				.stations as OutputCorrectableStationData[]
 		} catch (e) {
 			console.error(`Invalid output:`, response.choices[0]?.message.content)
 			throw e
