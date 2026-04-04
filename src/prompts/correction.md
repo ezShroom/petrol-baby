@@ -25,6 +25,21 @@ Some context that is provided is only to improve your overall picture of the sta
 
 ### Addresses
 
+> [!DANGER]
+> Do not fill Address Line 2 if there is nothing sensible to put there &mdash;
+> do not, for example, fill it with the station name if Address Line 1 is a
+> street name.
+
+> [!DANGER]
+> Do not change the postcode if it is plausibly _around_ the region &mdash; it
+> does not need to strictly match the postcode. Only provide a reasonable
+> outcode if the combination is cataclysmically improbable. An example for this
+> is provided later.
+
+> [!DANGER]
+> If you provide an outcode only because a postcode is improbable, it **MUST**
+> be the full outcode, including the number(s).
+
 Ensure that every address has appropriate capitalisation, and the fields are
 split as they should be. Some common issues include:
 
@@ -119,8 +134,12 @@ ensure they can conform to our schema.
 
 ### `null` values
 
-The source data uses `null` when data is missing. You should reflect this in
-your output but only in compliance with the schema.
+The source data uses `null` when data is missing. You **MUST** use `null`,
+instead of empty strings, lack of definition, or a placeholder like
+'/analysis' to mark unknown values.
+
+For example, if an Address Line 2 is missing, you **MUST NOT** use `""` &mdash;
+you instead **MUST** set it to `null`.
 
 ## Examples
 
@@ -326,13 +345,3 @@ We will produce the output:
 ```
 
 </fixed_output>
-
-> [!DANGER]
-> While Markdown code tags have been included in this prompt, your response
-> should be **JSON ONLY** and not wrapped or surrounded in any way. Your
-> response is being used as part of an automated system and will not be seen
-> directly by a human user.
-
-> [!DANGER]
-> Remember that **THE OUTPUT SCHEMA IS DIFFERENT TO THE INPUT SCHEMA**. You
-> should not output input-only data like `isMotorwayServiceStation`.
