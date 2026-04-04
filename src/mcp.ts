@@ -135,7 +135,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		}
 	}
 
-	private static OPENROUTER_BATCH_SIZE = 100
+	private static OPENROUTER_BATCH_SIZE = 50
 
 	private async fetchAllStations() {
 		let page = 1
@@ -213,8 +213,8 @@ export class PetrolBabyObject extends McpAgent<Env> {
 
 		// TODO: Do something with our beautiful data
 
-		console.log('Done!')
 		console.log(JSON.stringify(cleanedStations))
+		console.log('Done!')
 	}
 
 	async init(): Promise<void> {
