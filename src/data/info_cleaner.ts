@@ -3,8 +3,8 @@ import namesPrompt from '@/prompts/names.md'
 import { OpenRouter } from '@openrouter/sdk'
 import { ms } from 'ms'
 import z from 'zod'
-import { createIdMapping, restoreId, type IdMapping } from './cleanup/idmap'
-import type { PreprocessedStation } from './cleanup/preprocess'
+import { createIdMapping, restoreId, type IdMapping } from '../cleanup/id_map'
+import type { PreprocessedStation } from '../cleanup/preprocess'
 import {
 	AddressCorrectionOutputArrayJSONSchema,
 	AddressCorrectionOutputSchema,
@@ -14,7 +14,7 @@ import {
 	type AddressCorrectionOutput,
 	type NameCorrectionInput,
 	type NameCorrectionOutput
-} from './types/CorrectableStationData'
+} from '../types/CorrectableStationData'
 
 /** Batch size for LLM calls — smaller = more focused attention per station */
 export const LLM_BATCH_SIZE = 25

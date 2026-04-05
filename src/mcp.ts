@@ -9,10 +9,10 @@ import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import { z } from 'zod'
 import { version } from '../package.json'
 import { REPORTING_URL } from './constants'
+import { StationInfoHelper } from './data/info_helper.js'
 import migrations from './db/generated/migrations.js'
 import { dataMetadata } from './db/schema'
 import { FuelFinderOAuth } from './oauth'
-import { StationDataHelper } from './station_data'
 import { DataRegion } from './types/DataRegion'
 
 export class PetrolBabyObject extends McpAgent<Env> {
@@ -24,7 +24,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 	private storage: DurableObjectStorage
 	private db: DrizzleSqliteDODatabase<Record<string, unknown>>
 	private oauth: FuelFinderOAuth
-	private stationDataHelper
+	private stationInfoHelper
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env)
@@ -32,7 +32,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		this.db = drizzle(this.storage, { logger: false })
 		this.oauth = new FuelFinderOAuth(this.db, env)
 
-		this.stationDataHelper = new StationDataHelper({
+		this.stationInfoHelper = new StationInfoHelper({
 			env: this.env,
 			oauth: this.oauth
 		})
@@ -60,7 +60,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		pricesMetadata: InferSelectModel<typeof dataMetadata> | undefined
 	) {
 		if (!stationsMetadata) {
-			console.log(await this.stationDataHelper.backfillStations())
+			console.log(await this.stationInfoHelper.backfillStations())
 		}
 		if (!pricesMetadata) {
 			// await this.backfillPrices()

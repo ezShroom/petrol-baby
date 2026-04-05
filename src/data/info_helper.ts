@@ -1,19 +1,22 @@
 import { StatusCodes } from 'http-status-codes'
 import { ms } from 'ms'
-import { detectDuplicates, type DuplicateCandidate } from './cleanup/duplicates'
-import { preprocess, type PreprocessedStation } from './cleanup/preprocess'
+import {
+	detectDuplicates,
+	type DuplicateCandidate
+} from '../cleanup/duplicates'
+import { preprocess, type PreprocessedStation } from '../cleanup/preprocess'
 import {
 	baseUrl,
 	PERSISTENT_ACCESS_TOKEN_REFRESH_WINDOW_MS,
 	USER_AGENT
-} from './constants'
-import type { FuelFinderOAuth } from './oauth'
-import { patientFetch } from './patient_fetch'
-import { parseJsonResponse } from './response'
-import { LLM_BATCH_SIZE, StationCleaner } from './station_cleaner'
-import type { FuelFinderStation } from './types/FuelFinderStation'
+} from '../constants'
+import type { FuelFinderOAuth } from '../oauth'
+import { patientFetch } from '../patient_fetch'
+import { parseJsonResponse } from '../response'
+import type { FuelFinderStation } from '../types/FuelFinderStation'
+import { LLM_BATCH_SIZE, StationCleaner } from './info_cleaner'
 
-export class StationDataHelper {
+export class StationInfoHelper {
 	private cleaner: StationCleaner
 	private oauth: FuelFinderOAuth
 	private env: Env
