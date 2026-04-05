@@ -40,8 +40,8 @@ export type CoordinateFixResult = {
  * that places the coordinates inside the UK:
  *   1. Already valid (no change)
  *   2. Swap lat/lon
- *   3. Flip sign on latitude
- *   4. Flip sign on longitude
+ *   3. Flip sign on longitude
+ *   4. Flip sign on latitude
  *   5. Flip sign on both
  *   6. Swap + flip sign on latitude
  *   7. Swap + flip sign on longitude
@@ -61,8 +61,8 @@ export function fixCoordinates(
 	// Each candidate is [lat, lon]
 	const candidates: [number, number][] = [
 		[longitude, latitude], // swap
-		[-latitude, longitude], // flip lat sign
 		[latitude, -longitude], // flip lon sign
+		[-latitude, longitude], // flip lat sign
 		[-latitude, -longitude], // flip both signs
 		[-longitude, latitude], // swap + flip lat (was lon)
 		[longitude, -latitude], // swap + flip lon (was lat)
