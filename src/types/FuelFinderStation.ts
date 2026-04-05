@@ -1,5 +1,5 @@
 export type FuelFinderStation = {
-	node_id: string
+	node_id: string | null
 	public_phone_number: string | null
 	trading_name: string
 	is_same_trading_and_brand_name: boolean

@@ -14,3 +14,7 @@ of 500 data points / stations / etc.
 
 - [OAuth endpoints](https://www.developer.fuel-finder.service.gov.uk/apis-ifr/access-token/docs)
 - [Data endpoints](https://www.developer.fuel-finder.service.gov.uk/apis-ifr/info-recipent/docs)
+
+## Bun
+
+This project uses Bun.
