@@ -1,3 +1,27 @@
+export type DayOpeningTime = {
+	open: string
+	close: string
+	is_24_hours: boolean
+}
+
+export type OpeningTimes = {
+	usual_days: {
+		monday: DayOpeningTime
+		tuesday: DayOpeningTime
+		wednesday: DayOpeningTime
+		thursday: DayOpeningTime
+		friday: DayOpeningTime
+		saturday: DayOpeningTime
+		sunday: DayOpeningTime
+	}
+	bank_holiday: {
+		type: string
+		open_time: string
+		close_time: string
+		is_24_hours: boolean
+	}
+}
+
 export type FuelFinderStation = {
 	node_id: string | null
 	public_phone_number: string | null
@@ -20,50 +44,6 @@ export type FuelFinderStation = {
 		longitude: number
 	}
 	amenities: string[]
-	opening_times: {
-		usual_days: {
-			monday: {
-				open: string
-				close: string
-				is_24_hours: boolean
-			}
-			tuesday: {
-				open: string
-				close: string
-				is_24_hours: boolean
-			}
-			wednesday: {
-				open: string
-				close: string
-				is_24_hours: boolean
-			}
-			thursday: {
-				open: string
-				close: string
-				is_24_hours: boolean
-			}
-			friday: {
-				open: string
-				close: string
-				is_24_hours: boolean
-			}
-			saturday: {
-				open: string
-				close: string
-				is_24_hours: boolean
-			}
-			sunday: {
-				open: string
-				close: string
-				is_24_hours: boolean
-			}
-		}
-		bank_holiday: {
-			type: string
-			open_time: string
-			close_time: string
-			is_24_hours: boolean
-		}
-	}
+	opening_times: OpeningTimes
 	fuel_types: string[]
 }

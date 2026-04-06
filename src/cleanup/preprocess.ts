@@ -6,7 +6,7 @@
  * normalisation, country inference, and null normalisation.
  */
 
-import type { FuelFinderStation } from '@/types/FuelFinderStation'
+import type { FuelFinderStation, OpeningTimes } from '@/types/FuelFinderStation'
 import { fixCoordinates, type CoordinateFixResult } from './coordinates'
 import { inferCountry, type UKCountry } from './country'
 import { formatPhoneNumber } from './phone'
@@ -31,6 +31,13 @@ export type PreprocessedStation = {
 		longitude: number
 		valid: boolean
 	}
+	amenities: string[]
+	openingTimes: OpeningTimes
+	fuelTypes: string[]
+	/** SHA-256 hex digest of the original (pre-cleaning) trading name,
+	 *  brand name, address fields, and coordinates from the API. Used to
+	 *  detect upstream changes that require re-running the cleaning pipeline. */
+	originalHash: string
 }
 
 /**
@@ -44,12 +51,44 @@ function normaliseNullable(s: string | null | undefined): string | null {
 }
 
 /**
+ * Hashes the original (pre-cleaning) fields that the LLM pipeline may
+ * modify: trading name, brand name, address, and coordinates. The
+ * resulting hex digest can be compared against a stored value to detect
+ * upstream changes that require re-cleaning.
+ *
+ * Uses SHA-256 via the Web Crypto API (available on Cloudflare Workers).
+ */
+async function hashOriginalFields(station: FuelFinderStation): Promise<string> {
+	const data = JSON.stringify([
+		station.trading_name,
+		station.brand_name,
+		station.location.address_line_1,
+		station.location.address_line_2,
+		station.location.city,
+		station.location.country,
+		station.location.postcode,
+		station.location.latitude,
+		station.location.longitude
+	])
+	const digest = await crypto.subtle.digest(
+		'SHA-256',
+		new TextEncoder().encode(data)
+	)
+	return [...new Uint8Array(digest)]
+		.map((b) => b.toString(16).padStart(2, '0'))
+		.join('')
+}
+
+/**
  * Runs the full deterministic pre-processing pipeline on a single
  * raw station from the Fuel Finder API.
  */
-export function preprocess(
+export async function preprocess(
 	station: FuelFinderStation & { node_id: string }
-): PreprocessedStation {
+): Promise<PreprocessedStation> {
+	// Hash original fields before any cleaning
+	const originalHash = await hashOriginalFields(station)
+
 	// Normalise all nullable string fields
 	const address1 = normaliseNullable(station.location.address_line_1)
 	const address2 = normaliseNullable(station.location.address_line_2)
@@ -94,6 +133,10 @@ export function preprocess(
 			latitude: coordResult.latitude,
 			longitude: coordResult.longitude,
 			valid: coordResult.valid
-		}
+		},
+		amenities: station.amenities,
+		openingTimes: station.opening_times,
+		fuelTypes: station.fuel_types,
+		originalHash
 	}
 }

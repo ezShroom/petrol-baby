@@ -334,7 +334,11 @@ export class StationCleaner {
 				postcode: addr.postcode,
 				latitude: s.coords.latitude,
 				longitude: s.coords.longitude,
-				coordinatesValid: s.coords.valid
+				coordinatesValid: s.coords.valid,
+				amenities: s.amenities,
+				openingTimes: s.openingTimes,
+				fuelTypes: s.fuelTypes,
+				originalHash: s.originalHash
 			}
 		})
 	}

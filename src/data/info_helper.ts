@@ -98,7 +98,7 @@ export class StationInfoHelper {
 		}
 
 		console.log(`Pre-processing ${validStations.length} stations...`)
-		const preprocessed = validStations.map(preprocess)
+		const preprocessed = await Promise.all(validStations.map(preprocess))
 
 		const coordsFixed = preprocessed.filter((s) => s.coords.valid).length
 		const coordsBroken = preprocessed.length - coordsFixed
