@@ -17,4 +17,5 @@ of 500 data points / stations / etc.
 
 ## Bun
 
-This project uses Bun.
+This project uses Bun as a package manager, and is otherwise built on the
+Cloudflare Workers platform.
