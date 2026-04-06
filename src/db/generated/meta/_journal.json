@@ -43,6 +43,13 @@
       "when": 1775428427632,
       "tag": "0005_sour_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1775508057266,
+      "tag": "0006_stiff_professor_monster",
+      "breakpoints": true
     }
   ]
 }

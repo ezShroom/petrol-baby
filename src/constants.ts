@@ -5,7 +5,11 @@ export const baseUrl = <T extends object>(env: T & { USE_API?: string }) =>
 	env.USE_API === 'test'
 		? 'https://stg.fuel-finder.ics.gov.uk/api'
 		: 'https://www.fuel-finder.service.gov.uk/api'
-export const USER_AGENT = `petrol-baby/${version}`
-export const PERSISTENT_ACCESS_TOKEN_REFRESH_WINDOW_MS = ms('5m')
 export const REPORTING_URL =
 	'https://www.gov.uk/guidance/report-an-error-in-fuel-prices-or-forecourt-details'
+
+export const USER_AGENT = `petrol-baby/${version}`
+export const PERSISTENT_ACCESS_TOKEN_REFRESH_WINDOW_MS = ms('5m')
+
+// https://developers.cloudflare.com/durable-objects/platform/limits/#sql-storage-limits
+export const MAX_SQLITE_VARS_PER_STATEMENT = 100

@@ -34,6 +34,9 @@ export type PreprocessedStation = {
 	amenities: string[]
 	openingTimes: OpeningTimes
 	fuelTypes: string[]
+	temporarilyClosed: boolean
+	permanentlyClosed: boolean | null
+	permanentClosureDate: string | null
 	/** SHA-256 hex digest of the original (pre-cleaning) trading name,
 	 *  brand name, address fields, and coordinates from the API. Used to
 	 *  detect upstream changes that require re-running the cleaning pipeline. */
@@ -137,6 +140,9 @@ export async function preprocess(
 		amenities: station.amenities,
 		openingTimes: station.opening_times,
 		fuelTypes: station.fuel_types,
+		temporarilyClosed: station.temporary_closure,
+		permanentlyClosed: station.permanent_closure,
+		permanentClosureDate: station.permanent_closure_date,
 		originalHash
 	}
 }

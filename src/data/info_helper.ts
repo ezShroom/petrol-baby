@@ -85,7 +85,7 @@ export class StationInfoHelper {
 
 	public async backfillStations() {
 		const allStations = await this.fetchAllStations()
-		if (!allStations) return
+		if (!allStations) throw new Error('No stations found.')
 
 		// Phase 1: Filter out stations with no node ID, then pre-process
 		const validStations = allStations.filter(

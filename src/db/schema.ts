@@ -1,4 +1,5 @@
 import type { DataRegion } from '@/types/DataRegion'
+import { StationOpeningDay } from '@/types/StationOpeningDay'
 import {
 	integer,
 	primaryKey,
@@ -86,11 +87,10 @@ export const stationOpeningTime = sqliteTable(
 				onUpdate: 'cascade'
 			})
 			.notNull(),
-		day: text().notNull(),
+		day: integer().notNull().$type<StationOpeningDay>(),
 		openTime: text().notNull(),
 		closeTime: text().notNull(),
-		is24Hours: integer({ mode: 'boolean' }).notNull(),
-		bankHolidayType: text()
+		is24Hours: integer({ mode: 'boolean' }).notNull()
 	},
 	(table) => [primaryKey({ columns: [table.nodeId, table.day] })]
 )

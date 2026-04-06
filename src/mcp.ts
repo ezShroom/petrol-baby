@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { McpAgent } from 'agents/mcp'
-import { type InferSelectModel } from 'drizzle-orm'
+import { getTableColumns, sql, type InferSelectModel } from 'drizzle-orm'
 import {
 	drizzle,
 	type DrizzleSqliteDODatabase
@@ -8,10 +8,11 @@ import {
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
 import { z } from 'zod'
 import { version } from '../package.json'
-import { REPORTING_URL } from './constants'
-import { StationInfoHelper } from './data/info_helper.js'
+import { MAX_SQLITE_VARS_PER_STATEMENT, REPORTING_URL } from './constants'
+import { StationInfoHelper } from './data/info_helper'
 import migrations from './db/generated/migrations.js'
-import { dataMetadata } from './db/schema'
+import { setAll } from './db/helpers'
+import { dataMetadata, fuelStation, knownType } from './db/schema'
 import { FuelFinderOAuth } from './oauth'
 import { DataRegion } from './types/DataRegion'
 
@@ -60,7 +61,75 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		pricesMetadata: InferSelectModel<typeof dataMetadata> | undefined
 	) {
 		if (!stationsMetadata) {
-			console.log(await this.stationInfoHelper.backfillStations())
+			const stationInfo = await this.stationInfoHelper.backfillStations()
+
+			// ── 1. Fuel stations ───────────────────────────────────────────
+
+			{
+				const colCount = Object.keys(getTableColumns(fuelStation)).length
+				const batchSize = Math.floor(MAX_SQLITE_VARS_PER_STATEMENT / colCount)
+				const totalBatches = Math.ceil(stationInfo.length / batchSize)
+				for (let i = 0; i < stationInfo.length; i += batchSize) {
+					const batchNum = Math.floor(i / batchSize) + 1
+					if (batchNum % 50 === 1 || batchNum === totalBatches) {
+						console.log(
+							`Upserting stations: batch ${batchNum}/${totalBatches}...`
+						)
+					}
+					const batch = stationInfo.slice(i, i + batchSize)
+					await this.db
+						.insert(fuelStation)
+						.values(
+							batch.map((s) => ({
+								nodeId: s.nodeId,
+								phone: s.phone,
+								tradingName: s.tradingName,
+								brandName: s.brandName,
+								temporarilyClosed: s.temporarilyClosed,
+								permanentlyClosed: s.permanentlyClosed,
+								isMotorwayService: s.isMotorwayServiceStation,
+								isSupermarketService: s.isSupermarketServiceStation,
+								address1: s.address1,
+								address2: s.address2,
+								city: s.city,
+								country: s.country,
+								postcode: s.postcode,
+								latitude: s.latitude,
+								longitude: s.longitude,
+								permanentClosureDate: s.permanentClosureDate,
+								coordinatesValid: s.coordinatesValid,
+								sourceHash: s.originalHash
+							}))
+						)
+						.onConflictDoUpdate({
+							target: fuelStation.nodeId,
+							where: sql`${fuelStation.sourceHash} IS NOT ${sql.raw(`excluded.${fuelStation.sourceHash.name}`)}`,
+							set: setAll(fuelStation, {
+								exclude: [fuelStation.nodeId]
+							})
+						})
+				}
+			}
+
+			// ── 2. Known fuel types (lookup table, insert-or-ignore) ───────
+
+			{
+				const allFuelTypeCodes = [
+					...new Set(stationInfo.flatMap((s) => s.fuelTypes))
+				]
+				console.log(
+					`Inserting ${allFuelTypeCodes.length} distinct fuel type codes...`
+				)
+				const colCount = Object.keys(getTableColumns(knownType)).length
+				const batchSize = MAX_SQLITE_VARS_PER_STATEMENT / colCount
+				for (let i = 0; i < allFuelTypeCodes.length; i += batchSize) {
+					const batch = allFuelTypeCodes.slice(i, i + batchSize)
+					await this.db
+						.insert(knownType)
+						.values(batch.map((code) => ({ typeCode: code })))
+						.onConflictDoNothing()
+				}
+			}
 		}
 		if (!pricesMetadata) {
 			// await this.backfillPrices()
