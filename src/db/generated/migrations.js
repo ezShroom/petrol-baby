@@ -6,6 +6,8 @@ import m0003 from './0003_silly_slayback.sql';
 import m0004 from './0004_tidy_spot.sql';
 import m0005 from './0005_sour_hulk.sql';
 import m0006 from './0006_stiff_professor_monster.sql';
+import m0007 from './0007_strong_skullbuster.sql';
+import m0008 from './0008_orange_the_watchers.sql';
 
   export default {
     journal,
@@ -16,7 +18,9 @@ m0002,
 m0003,
 m0004,
 m0005,
-m0006
+m0006,
+m0007,
+m0008
     }
   }
   

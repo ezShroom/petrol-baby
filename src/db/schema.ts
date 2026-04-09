@@ -37,18 +37,21 @@ export const fuelStation = sqliteTable('fuel_station', {
 export const knownType = sqliteTable('known_type', {
 	typeCode: text().primaryKey()
 })
-export const availableFuelType = sqliteTable('available_fuel_type', {
-	associationId: text().primaryKey().$default(crypto.randomUUID),
-	nodeId: text()
-		.references(() => fuelStation.nodeId, {
-			onDelete: 'cascade',
-			onUpdate: 'cascade'
-		})
-		.notNull(),
-	typeCode: text()
-		.references(() => knownType.typeCode)
-		.notNull()
-})
+export const availableFuelType = sqliteTable(
+	'available_fuel_type',
+	{
+		nodeId: text()
+			.references(() => fuelStation.nodeId, {
+				onDelete: 'cascade',
+				onUpdate: 'cascade'
+			})
+			.notNull(),
+		typeCode: text()
+			.references(() => knownType.typeCode)
+			.notNull()
+	},
+	(table) => [primaryKey({ columns: [table.nodeId, table.typeCode] })]
+)
 export const pricingEvent = sqliteTable('pricing_event', {
 	nodeId: text().references(() => fuelStation.nodeId, {
 		onDelete: 'cascade',
@@ -114,6 +117,10 @@ export const potentialDuplicate = sqliteTable(
 )
 export const dataMetadata = sqliteTable('data_metadata', {
 	region: integer().primaryKey().$type<DataRegion>(),
-	backfilledAt: integer({ mode: 'timestamp' }).notNull(),
+	backfilledAt: integer({ mode: 'timestamp' })
+		.$default(() => new Date())
+		.notNull(),
 	lastUpdatedAt: integer({ mode: 'timestamp' })
+		.$default(() => new Date())
+		.notNull()
 })

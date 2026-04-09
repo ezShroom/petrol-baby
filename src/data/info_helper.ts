@@ -121,8 +121,14 @@ export class StationInfoHelper {
 		const allCleaned = (
 			await Promise.all(
 				batches.map(async (batch, i) => {
-					console.log(`Processing batch ${i + 1}/${batches.length}...`)
-					return this.cleaner.cleanBatch(batch)
+					try {
+						return await this.cleaner.cleanBatch(batch)
+					} catch (e) {
+						throw new Error(
+							`Processing batch ${i + 1}/${batches.length} failed`,
+							{ cause: e }
+						)
+					}
 				})
 			)
 		).flat()

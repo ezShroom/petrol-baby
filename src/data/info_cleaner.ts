@@ -20,7 +20,7 @@ import {
 export const LLM_BATCH_SIZE = 25
 
 /** Maximum retries per LLM call before hard failure */
-const MAX_LLM_RETRIES = 5
+const MAX_LLM_RETRIES = 10
 
 /** Timeout per individual LLM request */
 const LLM_TIMEOUT_MS = ms('90s')

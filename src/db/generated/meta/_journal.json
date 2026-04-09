@@ -50,6 +50,20 @@
       "when": 1775508057266,
       "tag": "0006_stiff_professor_monster",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1775730102997,
+      "tag": "0007_strong_skullbuster",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1775740300710,
+      "tag": "0008_orange_the_watchers",
+      "breakpoints": true
     }
   ]
 }
