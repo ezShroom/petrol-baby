@@ -64,6 +64,13 @@
       "when": 1775740300710,
       "tag": "0008_orange_the_watchers",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1775753455085,
+      "tag": "0009_stormy_chimera",
+      "breakpoints": true
     }
   ]
 }

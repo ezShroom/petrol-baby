@@ -15,6 +15,7 @@ import { z } from 'zod'
 import { version } from '../package.json'
 import { MAX_SQLITE_VARS_PER_STATEMENT, REPORTING_URL } from './constants'
 import { StationInfoHelper } from './data/info_helper'
+import { PriceInfoHelper } from './data/price_helper'
 import migrations from './db/generated/migrations.js'
 import { setAll } from './db/helpers'
 import {
@@ -24,6 +25,7 @@ import {
 	knownAmenity,
 	knownType,
 	potentialDuplicate,
+	pricingEvent,
 	stationAmenity,
 	stationOpeningTime
 } from './db/schema'
@@ -41,6 +43,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 	private db: DrizzleSqliteDODatabase<Record<string, unknown>>
 	private oauth: FuelFinderOAuth
 	private stationInfoHelper
+	private priceInfoHelper
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env)
@@ -49,6 +52,10 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		this.oauth = new FuelFinderOAuth(this.db, env)
 
 		this.stationInfoHelper = new StationInfoHelper({
+			env: this.env,
+			oauth: this.oauth
+		})
+		this.priceInfoHelper = new PriceInfoHelper({
 			env: this.env,
 			oauth: this.oauth
 		})
@@ -79,11 +86,76 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			await this.backfillStations()
 		}
 		if (!pricesMetadata) {
-			// await this.backfillPrices()
+			await this.backfillPrices()
 		}
 	}
 
+	private async backfillPrices() {
+		// Important: We use the time that we *started* at because otherwise,
+		// we may miss changes that happen in the window after we check but
+		// before we commit the dataMetadata to db
+		const timeStarted = new Date()
+
+		console.log('Backfilling prices')
+		const priceInfo = await this.priceInfoHelper.backfillPrices()
+
+		// Known fuel types
+		{
+			const allFuelTypeCodes = [
+				...new Set(priceInfo.map((price) => price.typeCode))
+			]
+			console.log(
+				`Inserting ${allFuelTypeCodes.length} distinct price fuel type codes...`
+			)
+			const colCount = Object.keys(getTableColumns(knownType)).length
+			const batchSize = MAX_SQLITE_VARS_PER_STATEMENT / colCount
+			for (let i = 0; i < allFuelTypeCodes.length; i += batchSize) {
+				const batch = allFuelTypeCodes.slice(i, i + batchSize)
+				await this.db
+					.insert(knownType)
+					.values(batch.map((code) => ({ typeCode: code })))
+					.onConflictDoNothing()
+			}
+		}
+
+		// Pricing events
+		{
+			console.log(`Inserting ${priceInfo.length} pricing events...`)
+			const colCount = Object.keys(getTableColumns(pricingEvent)).length
+			const batchSize = Math.floor(MAX_SQLITE_VARS_PER_STATEMENT / colCount)
+			const totalBatches = Math.ceil(priceInfo.length / batchSize)
+			for (let i = 0; i < priceInfo.length; i += batchSize) {
+				const batchNum = Math.floor(i / batchSize) + 1
+				if (batchNum % 50 === 1 || batchNum === totalBatches) {
+					console.log(
+						`Inserting pricing events: batch ${batchNum}/${totalBatches}...`
+					)
+				}
+				const batch = priceInfo.slice(i, i + batchSize)
+				await this.db.insert(pricingEvent).values(batch).onConflictDoNothing()
+			}
+		}
+
+		await this.db
+			.insert(dataMetadata)
+			.values({
+				region: DataRegion.Prices,
+				backfilledAt: timeStarted,
+				lastUpdatedAt: timeStarted
+			})
+			.onConflictDoUpdate({
+				target: dataMetadata.region,
+				set: setAll(dataMetadata, { exclude: [dataMetadata.region] })
+			})
+		console.log('Price backfill done.')
+	}
+
 	private async backfillStations() {
+		// Important: We use the time that we *started* at because otherwise,
+		// we may miss changes that happen in the window after we check but
+		// before we commit the dataMetadata to db
+		const timeStarted = new Date()
+
 		console.log('Backfilling stations')
 		const stationInfo = await this.stationInfoHelper.backfillStations()
 
@@ -170,7 +242,10 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			const batchSize = MAX_SQLITE_VARS_PER_STATEMENT / colCount
 			for (let i = 0; i < typeInsertions.length; i += batchSize) {
 				const batch = typeInsertions.slice(i, i + batchSize)
-				await this.db.insert(knownType).values(batch).onConflictDoNothing()
+				await this.db
+					.insert(availableFuelType)
+					.values(batch)
+					.onConflictDoNothing()
 			}
 		}
 
@@ -295,7 +370,11 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		// Done!
 		await this.db
 			.insert(dataMetadata)
-			.values({ region: DataRegion.Stations })
+			.values({
+				region: DataRegion.Stations,
+				backfilledAt: timeStarted,
+				lastUpdatedAt: timeStarted
+			})
 			.onConflictDoUpdate({
 				target: dataMetadata.region,
 				set: setAll(dataMetadata, { exclude: [dataMetadata.region] })

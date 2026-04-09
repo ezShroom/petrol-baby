@@ -52,17 +52,23 @@ export const availableFuelType = sqliteTable(
 	},
 	(table) => [primaryKey({ columns: [table.nodeId, table.typeCode] })]
 )
-export const pricingEvent = sqliteTable('pricing_event', {
-	nodeId: text().references(() => fuelStation.nodeId, {
-		onDelete: 'cascade',
-		onUpdate: 'cascade'
-	}),
-	typeCode: text()
-		.references(() => knownType.typeCode)
-		.notNull(),
-	timestamp: integer({ mode: 'timestamp' }).notNull(),
-	pricePence: real().notNull()
-})
+export const pricingEvent = sqliteTable(
+	'pricing_event',
+	{
+		nodeId: text().references(() => fuelStation.nodeId, {
+			onDelete: 'cascade',
+			onUpdate: 'cascade'
+		}),
+		typeCode: text()
+			.references(() => knownType.typeCode)
+			.notNull(),
+		timestamp: integer({ mode: 'timestamp_ms' }).notNull(),
+		pricePence: real().notNull()
+	},
+	(table) => [
+		primaryKey({ columns: [table.nodeId, table.typeCode, table.timestamp] })
+	]
+)
 export const knownAmenity = sqliteTable('known_amenity', {
 	amenityCode: text().primaryKey()
 })
