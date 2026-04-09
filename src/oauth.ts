@@ -64,10 +64,30 @@ export class FuelFinderOAuth {
 			return
 		}
 
+		await this.runAccessTokenRefresh({ refreshWindowMs })
+	}
+
+	async forceRefreshAccessToken(): Promise<void> {
+		await this.runAccessTokenRefresh({ force: true })
+	}
+
+	private accessTokenExpiresWithin(refreshWindowMs: number): boolean {
+		if (!this.accessToken) return true
+
+		return this.accessToken.expires.getTime() - Date.now() <= refreshWindowMs
+	}
+
+	private async runAccessTokenRefresh({
+		force = false,
+		refreshWindowMs = 0
+	}: {
+		force?: boolean
+		refreshWindowMs?: number
+	}): Promise<void> {
 		if (!this.accessTokenRefreshPromise) {
 			this.accessTokenRefreshPromise = Promise.resolve()
 				.then(() => {
-					if (!this.accessTokenExpiresWithin(refreshWindowMs)) return
+					if (!force && !this.accessTokenExpiresWithin(refreshWindowMs)) return
 					return this.refreshAccessToken()
 				})
 				.finally(() => {
@@ -76,12 +96,6 @@ export class FuelFinderOAuth {
 		}
 
 		await this.accessTokenRefreshPromise
-	}
-
-	private accessTokenExpiresWithin(refreshWindowMs: number): boolean {
-		if (!this.accessToken) return true
-
-		return this.accessToken.expires.getTime() - Date.now() <= refreshWindowMs
 	}
 
 	private async persistAccessToken(accessToken: {
@@ -199,13 +213,17 @@ export class FuelFinderOAuth {
 			}
 		)
 
-		// Check for server errors before attempting to parse JSON, since
-		// maintenance pages return HTML which would throw in parseJsonResponse
-		// and prevent the fallback from ever being reached.
+		// Check error statuses before attempting to parse JSON, since maintenance
+		// pages can return HTML and revoked refresh tokens should fall back to a
+		// full token generation flow.
 		if (!response.ok) {
-			if (response.status === StatusCodes.INTERNAL_SERVER_ERROR) {
+			if (
+				response.status === StatusCodes.INTERNAL_SERVER_ERROR ||
+				response.status === StatusCodes.UNAUTHORIZED ||
+				response.status === StatusCodes.FORBIDDEN
+			) {
 				console.warn(
-					'regenerate_access_token returned 500, falling back to generate_access_token'
+					`regenerate_access_token returned ${response.status}, falling back to generate_access_token`
 				)
 				await this.generateAccessAndRefreshTokens()
 				return

@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { McpAgent } from 'agents/mcp'
 import {
 	getTableColumns,
+	inArray,
 	sql,
 	type InferInsertModel,
 	type InferSelectModel
@@ -15,7 +16,7 @@ import { z } from 'zod'
 import { version } from '../package.json'
 import { MAX_SQLITE_VARS_PER_STATEMENT, REPORTING_URL } from './constants'
 import { StationInfoHelper } from './data/info_helper'
-import { PriceInfoHelper } from './data/price_helper'
+import { PriceInfoHelper, type BackfillPriceRecord } from './data/price_helper'
 import migrations from './db/generated/migrations.js'
 import { setAll } from './db/helpers'
 import {
@@ -32,6 +33,26 @@ import {
 import { FuelFinderOAuth } from './oauth'
 import { DataRegion } from './types/DataRegion'
 import { StationOpeningDay } from './types/StationOpeningDay'
+
+function isForeignKeyConstraintError(error: unknown): boolean {
+	if (!(error instanceof Error)) {
+		return false
+	}
+
+	const messages = [error.message]
+	if (error.cause instanceof Error) {
+		messages.push(error.cause.message)
+	}
+
+	return messages.some((message) => {
+		const normalized = message.toLowerCase()
+		return (
+			normalized.includes('foreign key constraint failed') ||
+			(normalized.includes('constraint failed') &&
+				normalized.includes('foreign key'))
+		)
+	})
+}
 
 export class PetrolBabyObject extends McpAgent<Env> {
 	override server = new McpServer({
@@ -132,7 +153,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 					)
 				}
 				const batch = priceInfo.slice(i, i + batchSize)
-				await this.db.insert(pricingEvent).values(batch).onConflictDoNothing()
+				await this.insertPricingBatch(batch, batchNum, totalBatches)
 			}
 		}
 
@@ -148,6 +169,48 @@ export class PetrolBabyObject extends McpAgent<Env> {
 				set: setAll(dataMetadata, { exclude: [dataMetadata.region] })
 			})
 		console.log('Price backfill done.')
+	}
+
+	private async insertPricingBatch(
+		batch: BackfillPriceRecord[],
+		batchNum: number,
+		totalBatches: number
+	) {
+		try {
+			await this.db.insert(pricingEvent).values(batch).onConflictDoNothing()
+		} catch (error) {
+			if (!isForeignKeyConstraintError(error)) {
+				throw error
+			}
+
+			const distinctNodeIds = [...new Set(batch.map((row) => row.nodeId))]
+			const knownStations = await this.db
+				.select({ nodeId: fuelStation.nodeId })
+				.from(fuelStation)
+				.where(inArray(fuelStation.nodeId, distinctNodeIds))
+			const knownNodeIds = new Set(
+				knownStations.map((station) => station.nodeId)
+			)
+			const knownRows = batch.filter((row) => knownNodeIds.has(row.nodeId))
+			const missingNodeIds = distinctNodeIds.filter(
+				(nodeId) => !knownNodeIds.has(nodeId)
+			)
+
+			console.warn(
+				`Pricing batch ${batchNum}/${totalBatches} hit missing stations; dropping ${missingNodeIds.length} node IDs and retrying ${knownRows.length}/${batch.length} rows.`
+			)
+			if (missingNodeIds.length > 0) {
+				console.warn(
+					`Missing station node IDs sample: ${missingNodeIds.slice(0, 10).join(', ')}`
+				)
+			}
+
+			if (knownRows.length === 0) {
+				return
+			}
+
+			await this.db.insert(pricingEvent).values(knownRows).onConflictDoNothing()
+		}
 	}
 
 	private async backfillStations() {

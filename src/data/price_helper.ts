@@ -1,12 +1,8 @@
 import { StatusCodes } from 'http-status-codes'
 import { ms } from 'ms'
-import {
-	baseUrl,
-	PERSISTENT_ACCESS_TOKEN_REFRESH_WINDOW_MS,
-	USER_AGENT
-} from '../constants'
+import { authenticatedPatientFetch } from '../authenticated_fetch'
+import { baseUrl, USER_AGENT } from '../constants'
 import type { FuelFinderOAuth } from '../oauth'
-import { patientFetch } from '../patient_fetch'
 import { parseJsonResponse } from '../response'
 import type { FuelFinderStationPrice } from '../types/FuelFinderStationPrice'
 
@@ -30,20 +26,14 @@ export class PriceInfoHelper {
 		let page = 1
 		const allPrices: FuelFinderStationPrice[] = []
 		while (true) {
-			await this.oauth.ensureAccessToken(
-				PERSISTENT_ACCESS_TOKEN_REFRESH_WINDOW_MS
-			)
-			if (!this.oauth.accessToken) {
-				return
-			}
-			const result = await patientFetch(
+			const result = await authenticatedPatientFetch(
+				this.oauth,
 				baseUrl(this.env) + `/v1/pfs/fuel-prices?batch-number=${page}`,
 				{
 					headers: {
 						Accept: 'application/json',
 						'Content-Type': 'application/json',
-						'User-Agent': USER_AGENT,
-						Authorization: `Bearer ${this.oauth.accessToken.value}`
+						'User-Agent': USER_AGENT
 					}
 				}
 			)

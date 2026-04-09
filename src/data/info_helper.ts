@@ -1,17 +1,13 @@
 import { StatusCodes } from 'http-status-codes'
 import { ms } from 'ms'
+import { authenticatedPatientFetch } from '../authenticated_fetch'
 import {
 	detectDuplicates,
 	type DuplicateCandidate
 } from '../cleanup/duplicates'
 import { preprocess, type PreprocessedStation } from '../cleanup/preprocess'
-import {
-	baseUrl,
-	PERSISTENT_ACCESS_TOKEN_REFRESH_WINDOW_MS,
-	USER_AGENT
-} from '../constants'
+import { baseUrl, USER_AGENT } from '../constants'
 import type { FuelFinderOAuth } from '../oauth'
-import { patientFetch } from '../patient_fetch'
 import { parseJsonResponse } from '../response'
 import type { FuelFinderStation } from '../types/FuelFinderStation'
 import { LLM_BATCH_SIZE, StationCleaner } from './info_cleaner'
@@ -33,20 +29,14 @@ export class StationInfoHelper {
 		let page = 1
 		const allStations: FuelFinderStation[] = []
 		while (true) {
-			await this.oauth.ensureAccessToken(
-				PERSISTENT_ACCESS_TOKEN_REFRESH_WINDOW_MS
-			)
-			if (!this.oauth.accessToken) {
-				return
-			}
-			const result = await patientFetch(
+			const result = await authenticatedPatientFetch(
+				this.oauth,
 				baseUrl(this.env) + `/v1/pfs?batch-number=${page}`,
 				{
 					headers: {
 						Accept: 'application/json',
 						'Content-Type': 'application/json',
-						'User-Agent': USER_AGENT,
-						Authorization: `Bearer ${this.oauth.accessToken.value}`
+						'User-Agent': USER_AGENT
 					}
 				}
 			)
