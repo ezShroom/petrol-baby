@@ -339,7 +339,6 @@ export class StationCleaner {
 				openingTimes: s.openingTimes,
 				fuelTypes: s.fuelTypes,
 				temporarilyClosed: s.temporarilyClosed,
-				permanentlyClosed: s.permanentlyClosed,
 				permanentClosureDate: s.permanentClosureDate,
 				originalHash: s.originalHash
 			}

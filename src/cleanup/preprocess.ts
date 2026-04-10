@@ -35,7 +35,6 @@ export type PreprocessedStation = {
 	openingTimes: OpeningTimes
 	fuelTypes: string[]
 	temporarilyClosed: boolean
-	permanentlyClosed: boolean | null
 	permanentClosureDate: string | null
 	/** SHA-256 hex digest of the original (pre-cleaning) trading name,
 	 *  brand name, address fields, and coordinates from the API. Used to
@@ -141,7 +140,6 @@ export async function preprocess(
 		openingTimes: station.opening_times,
 		fuelTypes: station.fuel_types,
 		temporarilyClosed: station.temporary_closure,
-		permanentlyClosed: station.permanent_closure,
 		permanentClosureDate: station.permanent_closure_date,
 		originalHash
 	}

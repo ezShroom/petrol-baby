@@ -244,7 +244,6 @@ export class PetrolBabyObject extends McpAgent<Env> {
 							tradingName: station.tradingName,
 							brandName: station.brandName,
 							temporarilyClosed: station.temporarilyClosed,
-							permanentlyClosed: station.permanentlyClosed,
 							isMotorwayService: station.isMotorwayServiceStation,
 							isSupermarketService: station.isSupermarketServiceStation,
 							address1: station.address1,
