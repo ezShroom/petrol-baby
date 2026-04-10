@@ -13,6 +13,20 @@ export type BackfillPriceRecord = {
 	pricePence: number
 }
 
+class FuelFinderApiError extends Error {
+	constructor(
+		message: string,
+		public readonly status: number
+	) {
+		super(message)
+		this.name = 'FuelFinderApiError'
+	}
+}
+
+function formatDateOnly(date: Date): string {
+	return date.toISOString().slice(0, 10)
+}
+
 export class PriceInfoHelper {
 	private oauth: FuelFinderOAuth
 	private env: Env
@@ -22,13 +36,29 @@ export class PriceInfoHelper {
 		this.env = env
 	}
 
-	private async fetchAllPrices() {
+	private async fetchPrices({
+		effectiveStartTimestamp,
+		requestLabel,
+		batchLabel,
+		completionLabel
+	}: {
+		effectiveStartTimestamp?: string
+		requestLabel: string
+		batchLabel: string
+		completionLabel: string
+	}) {
 		let page = 1
 		const allPrices: FuelFinderStationPrice[] = []
+
 		while (true) {
+			const params = new URLSearchParams({ 'batch-number': String(page) })
+			if (effectiveStartTimestamp) {
+				params.set('effective-start-timestamp', effectiveStartTimestamp)
+			}
+
 			const result = await authenticatedPatientFetch(
 				this.oauth,
-				baseUrl(this.env) + `/v1/pfs/fuel-prices?batch-number=${page}`,
+				`${baseUrl(this.env)}/v1/pfs/fuel-prices?${params.toString()}`,
 				{
 					headers: {
 						Accept: 'application/json',
@@ -37,6 +67,7 @@ export class PriceInfoHelper {
 					}
 				}
 			)
+
 			if (result.status === StatusCodes.NOT_FOUND) {
 				console.log('No more price pages')
 				break
@@ -48,29 +79,68 @@ export class PriceInfoHelper {
 				continue
 			}
 			if (!result.ok) {
-				console.error(
-					`Could not backfill prices: ${result.status} ${result.statusText}`
+				const body = await result.text()
+				console.error(`${requestLabel}: ${result.status} ${result.statusText}`)
+				console.debug(body)
+				throw new FuelFinderApiError(
+					`${requestLabel}: ${result.status} ${result.statusText}`,
+					result.status
 				)
-				console.debug(await result.text())
-				return
 			}
 
 			const rawArr = await parseJsonResponse<FuelFinderStationPrice[]>(result, {
-				context: `Fuel Finder prices batch ${page}`
+				context: `${batchLabel} ${page}`
 			})
 			allPrices.push(...rawArr)
 			page++
 		}
-		console.log(
-			`Fetched ${allPrices.length} price station rows across ${page - 1} pages`
-		)
+
+		console.log(`${completionLabel}: ${allPrices.length} station price rows`)
 		return allPrices
 	}
 
-	public async backfillPrices(): Promise<BackfillPriceRecord[]> {
-		const allPrices = await this.fetchAllPrices()
-		if (!allPrices) throw new Error('No prices found.')
+	private async fetchAllPrices() {
+		return this.fetchPrices({
+			requestLabel: 'Could not backfill prices',
+			batchLabel: 'Fuel Finder prices batch',
+			completionLabel: 'Fetched all prices'
+		})
+	}
 
+	private async fetchIncrementalPricesRaw(since: Date) {
+		const fullTimestamp = since.toISOString()
+
+		try {
+			return await this.fetchPrices({
+				effectiveStartTimestamp: fullTimestamp,
+				requestLabel: 'Could not fetch incremental prices',
+				batchLabel: 'Fuel Finder incremental prices batch',
+				completionLabel: `Fetched incremental prices since ${fullTimestamp}`
+			})
+		} catch (error) {
+			if (
+				!(error instanceof FuelFinderApiError) ||
+				error.status !== StatusCodes.BAD_REQUEST
+			) {
+				throw error
+			}
+
+			const dateOnly = formatDateOnly(since)
+			console.warn(
+				`Incremental price endpoint rejected full timestamp; retrying with date-only cursor ${dateOnly}`
+			)
+			return this.fetchPrices({
+				effectiveStartTimestamp: dateOnly,
+				requestLabel: 'Could not fetch incremental prices',
+				batchLabel: 'Fuel Finder incremental prices batch',
+				completionLabel: `Fetched incremental prices since ${dateOnly}`
+			})
+		}
+	}
+
+	private preparePrices(
+		allPrices: FuelFinderStationPrice[]
+	): BackfillPriceRecord[] {
 		let missingNodeIdCount = 0
 		let invalidTimestampCount = 0
 
@@ -110,7 +180,26 @@ export class PriceInfoHelper {
 			)
 		}
 
+		return priceRows
+	}
+
+	public async backfillPrices(): Promise<BackfillPriceRecord[]> {
+		const allPrices = await this.fetchAllPrices()
+		if (allPrices.length === 0) throw new Error('No prices found.')
+
+		const priceRows = this.preparePrices(allPrices)
 		console.log(`Prepared ${priceRows.length} pricing events for backfill`)
+		return priceRows
+	}
+
+	public async fetchIncrementalPrices(
+		since: Date
+	): Promise<BackfillPriceRecord[]> {
+		const allPrices = await this.fetchIncrementalPricesRaw(since)
+		const priceRows = this.preparePrices(allPrices)
+		console.log(
+			`Prepared ${priceRows.length} pricing events for incremental update`
+		)
 		return priceRows
 	}
 }

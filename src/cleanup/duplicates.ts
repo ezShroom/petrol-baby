@@ -58,6 +58,64 @@ export type DuplicateCandidate = {
 /** Maximum distance in metres to consider stations as potential duplicates */
 const DISTANCE_THRESHOLD_M = 100
 
+export function arePotentialDuplicates(
+	a: DuplicateCandidate,
+	b: DuplicateCandidate
+): boolean {
+	if (a.nodeId === b.nodeId) {
+		return false
+	}
+
+	if (normaliseBrand(a.brandName) !== normaliseBrand(b.brandName)) {
+		return false
+	}
+	if (!a.brandName || !b.brandName) return false
+
+	const distance = haversineDistance(
+		a.latitude,
+		a.longitude,
+		b.latitude,
+		b.longitude
+	)
+	if (distance > DISTANCE_THRESHOLD_M) return false
+
+	const samePostcode =
+		a.postcode &&
+		b.postcode &&
+		a.postcode.replace(/\s/g, '').toUpperCase() ===
+			b.postcode.replace(/\s/g, '').toUpperCase()
+
+	const similarAddress =
+		normaliseAddress(a.address1) !== '' &&
+		normaliseAddress(a.address1) === normaliseAddress(b.address1)
+
+	return Boolean(samePostcode || similarAddress)
+}
+
+export function detectDuplicatesForTargets(
+	targets: DuplicateCandidate[],
+	candidates: DuplicateCandidate[]
+): Map<string, string[]> {
+	const duplicates = new Map<string, string[]>()
+
+	for (const target of targets) {
+		for (const candidate of candidates) {
+			if (!arePotentialDuplicates(target, candidate)) {
+				continue
+			}
+
+			const existing = duplicates.get(target.nodeId)
+			if (existing) {
+				existing.push(candidate.nodeId)
+			} else {
+				duplicates.set(target.nodeId, [candidate.nodeId])
+			}
+		}
+	}
+
+	return duplicates
+}
+
 /**
  * Detects potential duplicate stations.
  *
@@ -82,33 +140,7 @@ export function detectDuplicates(
 			const b = stations[j]
 			if (!b) continue
 
-			// Quick brand check first (cheapest)
-			if (normaliseBrand(a.brandName) !== normaliseBrand(b.brandName)) {
-				continue
-			}
-			if (!a.brandName || !b.brandName) continue
-
-			// Distance check
-			const distance = haversineDistance(
-				a.latitude,
-				a.longitude,
-				b.latitude,
-				b.longitude
-			)
-			if (distance > DISTANCE_THRESHOLD_M) continue
-
-			// Address similarity: same postcode OR similar address1
-			const samePostcode =
-				a.postcode &&
-				b.postcode &&
-				a.postcode.replace(/\s/g, '').toUpperCase() ===
-					b.postcode.replace(/\s/g, '').toUpperCase()
-
-			const similarAddress =
-				normaliseAddress(a.address1) !== '' &&
-				normaliseAddress(a.address1) === normaliseAddress(b.address1)
-
-			if (!samePostcode && !similarAddress) continue
+			if (!arePotentialDuplicates(a, b)) continue
 
 			// It's a duplicate pair
 			if (!duplicates.has(a.nodeId)) duplicates.set(a.nodeId, [])

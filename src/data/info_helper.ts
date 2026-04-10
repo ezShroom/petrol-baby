@@ -12,6 +12,47 @@ import { parseJsonResponse } from '../response'
 import type { FuelFinderStation } from '../types/FuelFinderStation'
 import { LLM_BATCH_SIZE, StationCleaner } from './info_cleaner'
 
+export type CleanedStationRecord = {
+	nodeId: string
+	tradingName: string
+	brandName: string
+	phone: string | null
+	isMotorwayServiceStation: boolean
+	isSupermarketServiceStation: boolean
+	address1: string | null
+	address2: string | null
+	city: string | null
+	country: string | null
+	postcode: string | null
+	latitude: number
+	longitude: number
+	coordinatesValid: boolean
+	amenities: string[]
+	openingTimes: PreprocessedStation['openingTimes']
+	fuelTypes: string[]
+	temporarilyClosed: boolean
+	permanentClosureDate: string | null
+	originalHash: string
+}
+
+export type StationRecordWithDuplicates = CleanedStationRecord & {
+	potentialDuplicates: string[] | null
+}
+
+class FuelFinderApiError extends Error {
+	constructor(
+		message: string,
+		public readonly status: number
+	) {
+		super(message)
+		this.name = 'FuelFinderApiError'
+	}
+}
+
+function formatDateOnly(date: Date): string {
+	return date.toISOString().slice(0, 10)
+}
+
 export class StationInfoHelper {
 	private cleaner: StationCleaner
 	private oauth: FuelFinderOAuth
@@ -23,15 +64,29 @@ export class StationInfoHelper {
 		this.env = env
 	}
 
-	// ─── Fetch ─────────────────────────────────────────────────────────────
-
-	private async fetchAllStations() {
+	private async fetchStations({
+		effectiveStartTimestamp,
+		requestLabel,
+		batchLabel,
+		completionLabel
+	}: {
+		effectiveStartTimestamp?: string
+		requestLabel: string
+		batchLabel: string
+		completionLabel: string
+	}) {
 		let page = 1
 		const allStations: FuelFinderStation[] = []
+
 		while (true) {
+			const params = new URLSearchParams({ 'batch-number': String(page) })
+			if (effectiveStartTimestamp) {
+				params.set('effective-start-timestamp', effectiveStartTimestamp)
+			}
+
 			const result = await authenticatedPatientFetch(
 				this.oauth,
-				baseUrl(this.env) + `/v1/pfs?batch-number=${page}`,
+				`${baseUrl(this.env)}/v1/pfs?${params.toString()}`,
 				{
 					headers: {
 						Accept: 'application/json',
@@ -40,44 +95,78 @@ export class StationInfoHelper {
 					}
 				}
 			)
+
 			if (result.status === StatusCodes.NOT_FOUND) {
-				console.log('No more pages')
+				console.log('No more station pages')
 				break
 			}
 			if (result.status === StatusCodes.TOO_MANY_REQUESTS) {
-				console.warn('Ratelimited!')
+				console.warn('Ratelimited while fetching stations!')
 				console.debug(await result.text())
-				// $1M ratelimit handling
 				await new Promise((resolve) => setTimeout(resolve, ms('2s')))
 				continue
 			}
 			if (!result.ok) {
-				console.error(
-					`Could not backfill stations: ${result.status} ${result.statusText}`
+				const body = await result.text()
+				console.error(`${requestLabel}: ${result.status} ${result.statusText}`)
+				console.debug(body)
+				throw new FuelFinderApiError(
+					`${requestLabel}: ${result.status} ${result.statusText}`,
+					result.status
 				)
-				console.debug(await result.text())
-				return
 			}
 
 			const rawArr = await parseJsonResponse<FuelFinderStation[]>(result, {
-				context: `Fuel Finder stations batch ${page}`
+				context: `${batchLabel} ${page}`
 			})
 			allStations.push(...rawArr)
 			page++
 		}
-		console.log(
-			`Fetched ${allStations.length} stations across ${page - 1} pages`
-		)
+
+		console.log(`${completionLabel}: ${allStations.length} stations`)
 		return allStations
 	}
 
-	// ─── Backfill Orchestration ────────────────────────────────────────────
+	private async fetchAllStations() {
+		return this.fetchStations({
+			requestLabel: 'Could not backfill stations',
+			batchLabel: 'Fuel Finder stations batch',
+			completionLabel: 'Fetched all stations'
+		})
+	}
 
-	public async backfillStations() {
-		const allStations = await this.fetchAllStations()
-		if (!allStations) throw new Error('No stations found.')
+	private async fetchIncrementalStationsRaw(since: Date) {
+		const fullTimestamp = since.toISOString()
 
-		// Phase 1: Filter out stations with no node ID, then pre-process
+		try {
+			return await this.fetchStations({
+				effectiveStartTimestamp: fullTimestamp,
+				requestLabel: 'Could not fetch incremental stations',
+				batchLabel: 'Fuel Finder incremental stations batch',
+				completionLabel: `Fetched incremental stations since ${fullTimestamp}`
+			})
+		} catch (error) {
+			if (
+				!(error instanceof FuelFinderApiError) ||
+				error.status !== StatusCodes.BAD_REQUEST
+			) {
+				throw error
+			}
+
+			const dateOnly = formatDateOnly(since)
+			console.warn(
+				`Incremental station endpoint rejected full timestamp; retrying with date-only cursor ${dateOnly}`
+			)
+			return this.fetchStations({
+				effectiveStartTimestamp: dateOnly,
+				requestLabel: 'Could not fetch incremental stations',
+				batchLabel: 'Fuel Finder incremental stations batch',
+				completionLabel: `Fetched incremental stations since ${dateOnly}`
+			})
+		}
+	}
+
+	private async preprocessStations(allStations: FuelFinderStation[]) {
 		const validStations = allStations.filter(
 			(s): s is FuelFinderStation & { node_id: string } => s.node_id !== null
 		)
@@ -96,7 +185,16 @@ export class StationInfoHelper {
 			`Coordinates: ${coordsFixed} valid, ${coordsBroken} could not be fixed`
 		)
 
-		// Phase 2: Batch and clean through LLM
+		return preprocessed
+	}
+
+	public async cleanStations(
+		preprocessed: PreprocessedStation[]
+	): Promise<CleanedStationRecord[]> {
+		if (preprocessed.length === 0) {
+			return []
+		}
+
 		const batches: PreprocessedStation[][] = []
 		for (let i = 0; i < preprocessed.length; i += LLM_BATCH_SIZE) {
 			batches.push(preprocessed.slice(i, i + LLM_BATCH_SIZE))
@@ -105,25 +203,36 @@ export class StationInfoHelper {
 			`Cleaning ${preprocessed.length} stations in ${batches.length} batches of up to ${LLM_BATCH_SIZE}`
 		)
 
-		// Process all batches in parallel — each batch's two LLM passes
-		// (names then addresses) are sequential internally, but batches
-		// are independent of each other.
-		const allCleaned = (
+		return (
 			await Promise.all(
 				batches.map(async (batch, i) => {
 					try {
 						return await this.cleaner.cleanBatch(batch)
-					} catch (e) {
+					} catch (error) {
 						throw new Error(
 							`Processing batch ${i + 1}/${batches.length} failed`,
-							{ cause: e }
+							{ cause: error }
 						)
 					}
 				})
 			)
 		).flat()
+	}
 
-		// Phase 3: Duplicate detection
+	public async fetchIncrementalStations(
+		since: Date
+	): Promise<PreprocessedStation[]> {
+		const allStations = await this.fetchIncrementalStationsRaw(since)
+		return this.preprocessStations(allStations)
+	}
+
+	public async backfillStations(): Promise<StationRecordWithDuplicates[]> {
+		const allStations = await this.fetchAllStations()
+		if (allStations.length === 0) throw new Error('No stations found.')
+
+		const preprocessed = await this.preprocessStations(allStations)
+		const allCleaned = await this.cleanStations(preprocessed)
+
 		console.log('Detecting duplicates...')
 		const duplicateCandidates: DuplicateCandidate[] = allCleaned.map((s) => ({
 			nodeId: s.nodeId,
@@ -136,7 +245,6 @@ export class StationInfoHelper {
 		const duplicates = detectDuplicates(duplicateCandidates)
 		console.log(`Found ${duplicates.size} stations with potential duplicates`)
 
-		// Attach duplicate info to final results, return this thang
 		return allCleaned.map((s) => ({
 			...s,
 			potentialDuplicates: duplicates.get(s.nodeId) ?? null

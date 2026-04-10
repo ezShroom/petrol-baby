@@ -5,6 +5,9 @@
 	"compatibility_date": "2026-04-01",
 	"compatibility_flags": ["nodejs_compat"],
 	"workers_dev": false,
+	"triggers": {
+		"crons": ["* * * * *"]
+	},
 	"durable_objects": {
 		"bindings": [
 			{

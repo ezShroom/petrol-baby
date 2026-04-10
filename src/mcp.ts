@@ -1,8 +1,11 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { McpAgent } from 'agents/mcp'
 import {
+	and,
 	getTableColumns,
 	inArray,
+	not,
+	or,
 	sql,
 	type InferInsertModel,
 	type InferSelectModel
@@ -12,10 +15,20 @@ import {
 	type DrizzleSqliteDODatabase
 } from 'drizzle-orm/durable-sqlite'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
+import { ms } from 'ms'
 import { z } from 'zod'
 import { version } from '../package.json'
+import {
+	detectDuplicatesForTargets,
+	type DuplicateCandidate
+} from './cleanup/duplicates'
+import type { PreprocessedStation } from './cleanup/preprocess'
 import { MAX_SQLITE_VARS_PER_STATEMENT, REPORTING_URL } from './constants'
-import { StationInfoHelper } from './data/info_helper'
+import {
+	StationInfoHelper,
+	type CleanedStationRecord,
+	type StationRecordWithDuplicates
+} from './data/info_helper'
 import { PriceInfoHelper, type BackfillPriceRecord } from './data/price_helper'
 import migrations from './db/generated/migrations.js'
 import { setAll } from './db/helpers'
@@ -33,6 +46,31 @@ import {
 import { FuelFinderOAuth } from './oauth'
 import { DataRegion } from './types/DataRegion'
 import { StationOpeningDay } from './types/StationOpeningDay'
+
+const STATION_UPDATE_INTERVAL_MS = ms('15m')
+const PRICE_UPDATE_INTERVAL_MS = ms('1m')
+
+type MaintenanceKind = 'backfill' | 'scheduled'
+
+type MetadataRow = InferSelectModel<typeof dataMetadata>
+
+type StationUpsertRecord = Omit<CleanedStationRecord, 'originalHash'> & {
+	sourceHash: string
+	potentialDuplicates: string[] | null
+}
+
+type ExistingStationFields = Pick<
+	InferSelectModel<typeof fuelStation>,
+	| 'nodeId'
+	| 'tradingName'
+	| 'brandName'
+	| 'address1'
+	| 'address2'
+	| 'city'
+	| 'country'
+	| 'postcode'
+	| 'sourceHash'
+>
 
 function isForeignKeyConstraintError(error: unknown): boolean {
 	if (!(error instanceof Error)) {
@@ -54,22 +92,50 @@ function isForeignKeyConstraintError(error: unknown): boolean {
 	})
 }
 
+function toStationUpsertRecord(
+	station: StationRecordWithDuplicates
+): StationUpsertRecord {
+	return {
+		nodeId: station.nodeId,
+		tradingName: station.tradingName,
+		brandName: station.brandName,
+		phone: station.phone,
+		isMotorwayServiceStation: station.isMotorwayServiceStation,
+		isSupermarketServiceStation: station.isSupermarketServiceStation,
+		address1: station.address1,
+		address2: station.address2,
+		city: station.city,
+		country: station.country,
+		postcode: station.postcode,
+		latitude: station.latitude,
+		longitude: station.longitude,
+		coordinatesValid: station.coordinatesValid,
+		amenities: station.amenities,
+		openingTimes: station.openingTimes,
+		fuelTypes: station.fuelTypes,
+		temporarilyClosed: station.temporarilyClosed,
+		permanentClosureDate: station.permanentClosureDate,
+		sourceHash: station.originalHash,
+		potentialDuplicates: station.potentialDuplicates
+	}
+}
+
 export class PetrolBabyObject extends McpAgent<Env> {
 	override server = new McpServer({
 		name: 'petrol-baby',
 		version
 	})
 
-	private storage: DurableObjectStorage
 	private db: DrizzleSqliteDODatabase<Record<string, unknown>>
 	private oauth: FuelFinderOAuth
 	private stationInfoHelper
 	private priceInfoHelper
+	private maintenancePromise: Promise<void> | null = null
+	private maintenanceKind: MaintenanceKind | null = null
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env)
-		this.storage = ctx.storage
-		this.db = drizzle(this.storage, { logger: false })
+		this.db = drizzle(ctx.storage, { logger: false })
 		this.oauth = new FuelFinderOAuth(this.db, env)
 
 		this.stationInfoHelper = new StationInfoHelper({
@@ -84,91 +150,150 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		ctx.blockConcurrencyWhile(async () => {
 			await migrate(this.db, migrations)
 			await this.oauth.initialize()
-
-			const metadata = await this.db.select().from(dataMetadata)
-			const stationsMetadata = metadata.find(
-				(m) => m.region === DataRegion.Stations
-			)
-			const pricesMetadata = metadata.find(
-				(m) => m.region === DataRegion.Prices
-			)
-			// Do not await
-			this.backfillAsNeeded(stationsMetadata, pricesMetadata).catch((err) =>
-				console.error('backfill failed:', err)
-			)
 		})
 	}
 
-	private async backfillAsNeeded(
-		stationsMetadata: InferSelectModel<typeof dataMetadata> | undefined,
-		pricesMetadata: InferSelectModel<typeof dataMetadata> | undefined
-	) {
-		if (!stationsMetadata) {
+	private readMetadataRows = async () => {
+		const metadata = await this.db.select().from(dataMetadata)
+		return {
+			stations: metadata.find((row) => row.region === DataRegion.Stations),
+			prices: metadata.find((row) => row.region === DataRegion.Prices)
+		}
+	}
+
+	private startMaintenance(
+		kind: MaintenanceKind,
+		runner: () => Promise<void>
+	): Promise<void> | null {
+		if (this.maintenancePromise) {
+			console.log(
+				`Skipping ${kind} maintenance; ${this.maintenanceKind ?? 'another'} run already active.`
+			)
+			return null
+		}
+
+		const promise = runner().finally(() => {
+			if (this.maintenancePromise === promise) {
+				this.maintenancePromise = null
+				this.maintenanceKind = null
+			}
+		})
+
+		this.maintenancePromise = promise
+		this.maintenanceKind = kind
+		return promise
+	}
+
+	private async backfillMissingRegions() {
+		const { stations, prices } = await this.readMetadataRows()
+		if (!stations) {
 			await this.backfillStations()
 		}
-		if (!pricesMetadata) {
+		if (!prices) {
 			await this.backfillPrices()
 		}
 	}
 
-	private async backfillPrices() {
-		// Important: We use the time that we *started* at because otherwise,
-		// we may miss changes that happen in the window after we check but
-		// before we commit the dataMetadata to db
-		const timeStarted = new Date()
+	private isUpdateDue(lastUpdatedAt: Date, intervalMs: number): boolean {
+		return Date.now() - lastUpdatedAt.getTime() >= intervalMs
+	}
 
-		console.log('Backfilling prices')
-		const priceInfo = await this.priceInfoHelper.backfillPrices()
+	private async runScheduledMaintenanceInternal() {
+		const { stations, prices } = await this.readMetadataRows()
 
-		// Known fuel types
-		{
-			const allFuelTypeCodes = [
-				...new Set(priceInfo.map((price) => price.typeCode))
-			]
+		if (!stations || !prices) {
 			console.log(
-				`Inserting ${allFuelTypeCodes.length} distinct price fuel type codes...`
+				'Skipping scheduled maintenance until both station and price backfills complete.'
 			)
-			const colCount = Object.keys(getTableColumns(knownType)).length
-			const batchSize = MAX_SQLITE_VARS_PER_STATEMENT / colCount
-			for (let i = 0; i < allFuelTypeCodes.length; i += batchSize) {
-				const batch = allFuelTypeCodes.slice(i, i + batchSize)
-				await this.db
-					.insert(knownType)
-					.values(batch.map((code) => ({ typeCode: code })))
-					.onConflictDoNothing()
-			}
+			return
 		}
 
-		// Pricing events
-		{
-			console.log(`Inserting ${priceInfo.length} pricing events...`)
-			const colCount = Object.keys(getTableColumns(pricingEvent)).length
-			const batchSize = Math.floor(MAX_SQLITE_VARS_PER_STATEMENT / colCount)
-			const totalBatches = Math.ceil(priceInfo.length / batchSize)
-			for (let i = 0; i < priceInfo.length; i += batchSize) {
-				const batchNum = Math.floor(i / batchSize) + 1
-				if (batchNum % 50 === 1 || batchNum === totalBatches) {
-					console.log(
-						`Inserting pricing events: batch ${batchNum}/${totalBatches}...`
-					)
-				}
-				const batch = priceInfo.slice(i, i + batchSize)
-				await this.insertPricingBatch(batch, batchNum, totalBatches)
-			}
+		const shouldUpdateStations = this.isUpdateDue(
+			stations.lastUpdatedAt,
+			STATION_UPDATE_INTERVAL_MS
+		)
+		const shouldUpdatePrices = this.isUpdateDue(
+			prices.lastUpdatedAt,
+			PRICE_UPDATE_INTERVAL_MS
+		)
+
+		if (!shouldUpdateStations && !shouldUpdatePrices) {
+			console.log('Skipping scheduled maintenance; nothing due.')
+			return
 		}
 
-		await this.db
-			.insert(dataMetadata)
-			.values({
-				region: DataRegion.Prices,
-				backfilledAt: timeStarted,
-				lastUpdatedAt: timeStarted
-			})
-			.onConflictDoUpdate({
-				target: dataMetadata.region,
-				set: setAll(dataMetadata, { exclude: [dataMetadata.region] })
-			})
-		console.log('Price backfill done.')
+		if (shouldUpdateStations) {
+			await this.updateStations(stations)
+		}
+		if (shouldUpdatePrices) {
+			await this.updatePrices(prices)
+		}
+	}
+
+	public async runScheduledMaintenance(): Promise<void> {
+		const promise = this.startMaintenance('scheduled', () =>
+			this.runScheduledMaintenanceInternal()
+		)
+		if (!promise) {
+			return
+		}
+
+		await promise
+	}
+
+	private async insertKnownFuelTypes(typeCodes: string[]) {
+		if (typeCodes.length === 0) {
+			return
+		}
+
+		console.log(`Inserting ${typeCodes.length} distinct fuel type codes...`)
+		const colCount = Object.keys(getTableColumns(knownType)).length
+		const batchSize = Math.floor(MAX_SQLITE_VARS_PER_STATEMENT / colCount)
+		for (let i = 0; i < typeCodes.length; i += batchSize) {
+			const batch = typeCodes.slice(i, i + batchSize)
+			await this.db
+				.insert(knownType)
+				.values(batch.map((code) => ({ typeCode: code })))
+				.onConflictDoNothing()
+		}
+	}
+
+	private async insertKnownAmenities(amenityCodes: string[]) {
+		if (amenityCodes.length === 0) {
+			return
+		}
+
+		console.log(`Inserting ${amenityCodes.length} distinct amenity codes...`)
+		const colCount = Object.keys(getTableColumns(knownAmenity)).length
+		const batchSize = Math.floor(MAX_SQLITE_VARS_PER_STATEMENT / colCount)
+		for (let i = 0; i < amenityCodes.length; i += batchSize) {
+			const batch = amenityCodes.slice(i, i + batchSize)
+			await this.db
+				.insert(knownAmenity)
+				.values(batch.map((code) => ({ amenityCode: code })))
+				.onConflictDoNothing()
+		}
+	}
+
+	private async insertPricingEvents(priceInfo: BackfillPriceRecord[]) {
+		if (priceInfo.length === 0) {
+			return
+		}
+
+		console.log(`Inserting ${priceInfo.length} pricing events...`)
+		const colCount = Object.keys(getTableColumns(pricingEvent)).length
+		const batchSize = Math.floor(MAX_SQLITE_VARS_PER_STATEMENT / colCount)
+		const totalBatches = Math.ceil(priceInfo.length / batchSize)
+		for (let i = 0; i < priceInfo.length; i += batchSize) {
+			const batchNum = Math.floor(i / batchSize) + 1
+			if (batchNum % 50 === 1 || batchNum === totalBatches) {
+				console.log(
+					`Inserting pricing events: batch ${batchNum}/${totalBatches}...`
+				)
+			}
+			const batch = priceInfo.slice(i, i + batchSize)
+			await this.insertPricingBatch(batch, batchNum, totalBatches)
+		}
 	}
 
 	private async insertPricingBatch(
@@ -213,51 +338,47 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		}
 	}
 
-	private async backfillStations() {
-		// Important: We use the time that we *started* at because otherwise,
-		// we may miss changes that happen in the window after we check but
-		// before we commit the dataMetadata to db
-		const timeStarted = new Date()
+	private async upsertFuelStations(
+		stationInfo: StationUpsertRecord[],
+		options: { onlyWhenSourceHashChanged: boolean }
+	) {
+		if (stationInfo.length === 0) {
+			return
+		}
 
-		console.log('Backfilling stations')
-		const stationInfo = await this.stationInfoHelper.backfillStations()
+		const colCount = Object.keys(getTableColumns(fuelStation)).length
+		const batchSize = Math.floor(MAX_SQLITE_VARS_PER_STATEMENT / colCount)
+		const totalBatches = Math.ceil(stationInfo.length / batchSize)
+		for (let i = 0; i < stationInfo.length; i += batchSize) {
+			const batchNum = Math.floor(i / batchSize) + 1
+			if (batchNum % 50 === 1 || batchNum === totalBatches) {
+				console.log(`Upserting stations: batch ${batchNum}/${totalBatches}...`)
+			}
+			const batch = stationInfo.slice(i, i + batchSize)
+			const values = batch.map((station) => ({
+				nodeId: station.nodeId,
+				phone: station.phone,
+				tradingName: station.tradingName,
+				brandName: station.brandName,
+				temporarilyClosed: station.temporarilyClosed,
+				isMotorwayService: station.isMotorwayServiceStation,
+				isSupermarketService: station.isSupermarketServiceStation,
+				address1: station.address1,
+				address2: station.address2,
+				city: station.city,
+				country: station.country,
+				postcode: station.postcode,
+				latitude: station.latitude,
+				longitude: station.longitude,
+				permanentClosureDate: station.permanentClosureDate,
+				coordinatesValid: station.coordinatesValid,
+				sourceHash: station.sourceHash
+			}))
 
-		// Stations
-		{
-			const colCount = Object.keys(getTableColumns(fuelStation)).length
-			const batchSize = Math.floor(MAX_SQLITE_VARS_PER_STATEMENT / colCount)
-			const totalBatches = Math.ceil(stationInfo.length / batchSize)
-			for (let i = 0; i < stationInfo.length; i += batchSize) {
-				const batchNum = Math.floor(i / batchSize) + 1
-				if (batchNum % 50 === 1 || batchNum === totalBatches) {
-					console.log(
-						`Upserting stations: batch ${batchNum}/${totalBatches}...`
-					)
-				}
-				const batch = stationInfo.slice(i, i + batchSize)
+			if (options.onlyWhenSourceHashChanged) {
 				await this.db
 					.insert(fuelStation)
-					.values(
-						batch.map((station) => ({
-							nodeId: station.nodeId,
-							phone: station.phone,
-							tradingName: station.tradingName,
-							brandName: station.brandName,
-							temporarilyClosed: station.temporarilyClosed,
-							isMotorwayService: station.isMotorwayServiceStation,
-							isSupermarketService: station.isSupermarketServiceStation,
-							address1: station.address1,
-							address2: station.address2,
-							city: station.city,
-							country: station.country,
-							postcode: station.postcode,
-							latitude: station.latitude,
-							longitude: station.longitude,
-							permanentClosureDate: station.permanentClosureDate,
-							coordinatesValid: station.coordinatesValid,
-							sourceHash: station.originalHash
-						}))
-					)
+					.values(values)
 					.onConflictDoUpdate({
 						target: fuelStation.nodeId,
 						where: sql`${fuelStation.sourceHash} IS NOT ${sql.raw(`excluded.${fuelStation.sourceHash.name}`)}`,
@@ -265,183 +386,491 @@ export class PetrolBabyObject extends McpAgent<Env> {
 							exclude: [fuelStation.nodeId]
 						})
 					})
-			}
-		}
-
-		// Known fuel types
-		{
-			const allFuelTypeCodes = [
-				...new Set(stationInfo.flatMap((station) => station.fuelTypes))
-			]
-			console.log(
-				`Inserting ${allFuelTypeCodes.length} distinct fuel type codes...`
-			)
-			const colCount = Object.keys(getTableColumns(knownType)).length
-			const batchSize = MAX_SQLITE_VARS_PER_STATEMENT / colCount
-			for (let i = 0; i < allFuelTypeCodes.length; i += batchSize) {
-				const batch = allFuelTypeCodes.slice(i, i + batchSize)
+			} else {
 				await this.db
-					.insert(knownType)
-					.values(batch.map((code) => ({ typeCode: code })))
-					.onConflictDoNothing()
-			}
-		}
-
-		// Fuel type associations
-		{
-			const typeInsertions = stationInfo.flatMap((station) =>
-				station.fuelTypes.map(
-					(typeCode): InferInsertModel<typeof availableFuelType> => ({
-						nodeId: station.nodeId,
-						typeCode
-					})
-				)
-			)
-			console.log(
-				`Inserting ${typeInsertions.length} fuel type associations...`
-			)
-			const colCount = Object.keys(getTableColumns(availableFuelType)).length
-			const batchSize = MAX_SQLITE_VARS_PER_STATEMENT / colCount
-			for (let i = 0; i < typeInsertions.length; i += batchSize) {
-				const batch = typeInsertions.slice(i, i + batchSize)
-				await this.db
-					.insert(availableFuelType)
-					.values(batch)
-					.onConflictDoNothing()
-			}
-		}
-
-		// Known amenities
-		{
-			const allAmenities = [
-				...new Set(stationInfo.flatMap((station) => station.amenities))
-			]
-			console.log(`Inserting ${allAmenities.length} distinct amenity codes...`)
-			const colCount = Object.keys(getTableColumns(knownAmenity)).length
-			const batchSize = MAX_SQLITE_VARS_PER_STATEMENT / colCount
-			for (let i = 0; i < allAmenities.length; i += batchSize) {
-				const batch = allAmenities.slice(i, i + batchSize)
-				await this.db
-					.insert(knownAmenity)
-					.values(batch.map((code) => ({ amenityCode: code })))
-					.onConflictDoNothing()
-			}
-		}
-
-		// Amenity associations
-		{
-			const amenityInsertions = stationInfo.flatMap((station) =>
-				station.amenities.map(
-					(amenityCode): InferInsertModel<typeof stationAmenity> => ({
-						nodeId: station.nodeId,
-						amenityCode: amenityCode
-					})
-				)
-			)
-			console.log(
-				`Inserting ${amenityInsertions.length} amenity associations...`
-			)
-			const colCount = Object.keys(getTableColumns(stationAmenity)).length
-			const batchSize = MAX_SQLITE_VARS_PER_STATEMENT / colCount
-			for (let i = 0; i < amenityInsertions.length; i += batchSize) {
-				const batch = amenityInsertions.slice(i, i + batchSize)
-				await this.db.insert(stationAmenity).values(batch).onConflictDoNothing()
-			}
-		}
-
-		// Opening times
-		{
-			const usualDayMappings = [
-				[StationOpeningDay.Monday, 'monday'],
-				[StationOpeningDay.Tuesday, 'tuesday'],
-				[StationOpeningDay.Wednesday, 'wednesday'],
-				[StationOpeningDay.Thursday, 'thursday'],
-				[StationOpeningDay.Friday, 'friday'],
-				[StationOpeningDay.Saturday, 'saturday'],
-				[StationOpeningDay.Sunday, 'sunday']
-			] as const
-
-			const openingTimeInsertions = stationInfo.flatMap((station) => [
-				...usualDayMappings.map(([day, key]) => {
-					const times = station.openingTimes.usual_days[key]
-					return {
-						nodeId: station.nodeId,
-						day,
-						openTime: times.open,
-						closeTime: times.close,
-						is24Hours: times.is_24_hours
-					}
-				}),
-				{
-					nodeId: station.nodeId,
-					day: StationOpeningDay.BankHoliday,
-					openTime: station.openingTimes.bank_holiday.open_time,
-					closeTime: station.openingTimes.bank_holiday.close_time,
-					is24Hours: station.openingTimes.bank_holiday.is_24_hours
-				}
-			])
-			console.log(
-				`Upserting ${openingTimeInsertions.length} opening time rows...`
-			)
-			const colCount = Object.keys(getTableColumns(stationOpeningTime)).length
-			const batchSize = MAX_SQLITE_VARS_PER_STATEMENT / colCount
-			for (let i = 0; i < openingTimeInsertions.length; i += batchSize) {
-				const batch = openingTimeInsertions.slice(i, i + batchSize)
-				await this.db
-					.insert(stationOpeningTime)
-					.values(batch)
+					.insert(fuelStation)
+					.values(values)
 					.onConflictDoUpdate({
-						target: [stationOpeningTime.nodeId, stationOpeningTime.day],
-						set: setAll(stationOpeningTime, {
-							exclude: [stationOpeningTime.nodeId, stationOpeningTime.day]
+						target: fuelStation.nodeId,
+						set: setAll(fuelStation, {
+							exclude: [fuelStation.nodeId]
 						})
 					})
 			}
 		}
+	}
 
-		// Potential duplicates
-		{
-			const duplicateAssociationInsertions = stationInfo
-				.flatMap((station) =>
-					station.potentialDuplicates?.map(
-						(duplicateId): InferInsertModel<typeof potentialDuplicate> => ({
-							sourceNodeId: station.nodeId,
-							targetNodeId: duplicateId
-						})
-					)
-				)
-				.filter((item) => item !== undefined)
-			console.log(
-				`Inserting ${duplicateAssociationInsertions.length} potential duplicate associations...`
+	private async insertAvailableFuelTypes(stationInfo: StationUpsertRecord[]) {
+		const typeInsertions = stationInfo.flatMap((station) =>
+			station.fuelTypes.map(
+				(typeCode): InferInsertModel<typeof availableFuelType> => ({
+					nodeId: station.nodeId,
+					typeCode
+				})
 			)
-			const colCount = Object.keys(getTableColumns(potentialDuplicate)).length
-			const batchSize = MAX_SQLITE_VARS_PER_STATEMENT / colCount
-			for (
-				let i = 0;
-				i < duplicateAssociationInsertions.length;
-				i += batchSize
-			) {
-				const batch = duplicateAssociationInsertions.slice(i, i + batchSize)
-				await this.db
-					.insert(potentialDuplicate)
-					.values(batch)
-					.onConflictDoNothing()
-			}
+		)
+		if (typeInsertions.length === 0) {
+			return
 		}
 
-		// Done!
+		console.log(`Inserting ${typeInsertions.length} fuel type associations...`)
+		const colCount = Object.keys(getTableColumns(availableFuelType)).length
+		const batchSize = Math.floor(MAX_SQLITE_VARS_PER_STATEMENT / colCount)
+		for (let i = 0; i < typeInsertions.length; i += batchSize) {
+			const batch = typeInsertions.slice(i, i + batchSize)
+			await this.db
+				.insert(availableFuelType)
+				.values(batch)
+				.onConflictDoNothing()
+		}
+	}
+
+	private async insertStationAmenities(stationInfo: StationUpsertRecord[]) {
+		const amenityInsertions = stationInfo.flatMap((station) =>
+			station.amenities.map(
+				(amenityCode): InferInsertModel<typeof stationAmenity> => ({
+					nodeId: station.nodeId,
+					amenityCode
+				})
+			)
+		)
+		if (amenityInsertions.length === 0) {
+			return
+		}
+
+		console.log(`Inserting ${amenityInsertions.length} amenity associations...`)
+		const colCount = Object.keys(getTableColumns(stationAmenity)).length
+		const batchSize = Math.floor(MAX_SQLITE_VARS_PER_STATEMENT / colCount)
+		for (let i = 0; i < amenityInsertions.length; i += batchSize) {
+			const batch = amenityInsertions.slice(i, i + batchSize)
+			await this.db.insert(stationAmenity).values(batch).onConflictDoNothing()
+		}
+	}
+
+	private async insertStationOpeningTimes(stationInfo: StationUpsertRecord[]) {
+		const usualDayMappings = [
+			[StationOpeningDay.Monday, 'monday'],
+			[StationOpeningDay.Tuesday, 'tuesday'],
+			[StationOpeningDay.Wednesday, 'wednesday'],
+			[StationOpeningDay.Thursday, 'thursday'],
+			[StationOpeningDay.Friday, 'friday'],
+			[StationOpeningDay.Saturday, 'saturday'],
+			[StationOpeningDay.Sunday, 'sunday']
+		] as const
+
+		const openingTimeInsertions = stationInfo.flatMap((station) => [
+			...usualDayMappings.map(([day, key]) => {
+				const times = station.openingTimes.usual_days[key]
+				return {
+					nodeId: station.nodeId,
+					day,
+					openTime: times.open,
+					closeTime: times.close,
+					is24Hours: times.is_24_hours
+				}
+			}),
+			{
+				nodeId: station.nodeId,
+				day: StationOpeningDay.BankHoliday,
+				openTime: station.openingTimes.bank_holiday.open_time,
+				closeTime: station.openingTimes.bank_holiday.close_time,
+				is24Hours: station.openingTimes.bank_holiday.is_24_hours
+			}
+		])
+		if (openingTimeInsertions.length === 0) {
+			return
+		}
+
+		console.log(
+			`Upserting ${openingTimeInsertions.length} opening time rows...`
+		)
+		const colCount = Object.keys(getTableColumns(stationOpeningTime)).length
+		const batchSize = Math.floor(MAX_SQLITE_VARS_PER_STATEMENT / colCount)
+		for (let i = 0; i < openingTimeInsertions.length; i += batchSize) {
+			const batch = openingTimeInsertions.slice(i, i + batchSize)
+			await this.db
+				.insert(stationOpeningTime)
+				.values(batch)
+				.onConflictDoUpdate({
+					target: [stationOpeningTime.nodeId, stationOpeningTime.day],
+					set: setAll(stationOpeningTime, {
+						exclude: [stationOpeningTime.nodeId, stationOpeningTime.day]
+					})
+				})
+		}
+	}
+
+	private async insertPotentialDuplicates(stationInfo: StationUpsertRecord[]) {
+		const duplicateAssociationInsertions = stationInfo
+			.flatMap((station) =>
+				station.potentialDuplicates?.map(
+					(targetNodeId): InferInsertModel<typeof potentialDuplicate> => ({
+						sourceNodeId: station.nodeId,
+						targetNodeId
+					})
+				)
+			)
+			.filter((item) => item !== undefined)
+		if (duplicateAssociationInsertions.length === 0) {
+			return
+		}
+
+		console.log(
+			`Inserting ${duplicateAssociationInsertions.length} potential duplicate associations...`
+		)
+		const colCount = Object.keys(getTableColumns(potentialDuplicate)).length
+		const batchSize = Math.floor(MAX_SQLITE_VARS_PER_STATEMENT / colCount)
+		for (let i = 0; i < duplicateAssociationInsertions.length; i += batchSize) {
+			const batch = duplicateAssociationInsertions.slice(i, i + batchSize)
+			await this.db
+				.insert(potentialDuplicate)
+				.values(batch)
+				.onConflictDoNothing()
+		}
+	}
+
+	private async insertStationRelations(stationInfo: StationUpsertRecord[]) {
+		const allFuelTypeCodes = [
+			...new Set(stationInfo.flatMap((s) => s.fuelTypes))
+		]
+		await this.insertKnownFuelTypes(allFuelTypeCodes)
+
+		const allAmenities = [...new Set(stationInfo.flatMap((s) => s.amenities))]
+		await this.insertKnownAmenities(allAmenities)
+
+		await this.insertAvailableFuelTypes(stationInfo)
+		await this.insertStationAmenities(stationInfo)
+		await this.insertStationOpeningTimes(stationInfo)
+		await this.insertPotentialDuplicates(stationInfo)
+	}
+
+	private async deleteStationRelations(nodeIds: string[]) {
+		if (nodeIds.length === 0) {
+			return
+		}
+
+		await this.db
+			.delete(availableFuelType)
+			.where(inArray(availableFuelType.nodeId, nodeIds))
+		await this.db
+			.delete(stationAmenity)
+			.where(inArray(stationAmenity.nodeId, nodeIds))
+		await this.db
+			.delete(stationOpeningTime)
+			.where(inArray(stationOpeningTime.nodeId, nodeIds))
+		await this.db
+			.delete(potentialDuplicate)
+			.where(
+				or(
+					inArray(potentialDuplicate.sourceNodeId, nodeIds),
+					inArray(potentialDuplicate.targetNodeId, nodeIds)
+				)
+			)
+	}
+
+	private async markBackfillComplete(region: DataRegion, timeStarted: Date) {
 		await this.db
 			.insert(dataMetadata)
 			.values({
-				region: DataRegion.Stations,
+				region,
 				backfilledAt: timeStarted,
 				lastUpdatedAt: timeStarted
 			})
 			.onConflictDoUpdate({
 				target: dataMetadata.region,
-				set: setAll(dataMetadata, { exclude: [dataMetadata.region] })
+				set: {
+					backfilledAt: timeStarted,
+					lastUpdatedAt: timeStarted
+				}
 			})
+	}
+
+	private async markUpdateComplete(region: DataRegion, timeStarted: Date) {
+		await this.db
+			.insert(dataMetadata)
+			.values({
+				region,
+				backfilledAt: timeStarted,
+				lastUpdatedAt: timeStarted
+			})
+			.onConflictDoUpdate({
+				target: dataMetadata.region,
+				set: {
+					lastUpdatedAt: timeStarted
+				}
+			})
+	}
+
+	private async buildStationUpdateRecords(
+		preprocessed: PreprocessedStation[]
+	): Promise<StationUpsertRecord[]> {
+		if (preprocessed.length === 0) {
+			return []
+		}
+
+		const nodeIds = [...new Set(preprocessed.map((station) => station.nodeId))]
+		const existingStations = await this.db
+			.select({
+				nodeId: fuelStation.nodeId,
+				tradingName: fuelStation.tradingName,
+				brandName: fuelStation.brandName,
+				address1: fuelStation.address1,
+				address2: fuelStation.address2,
+				city: fuelStation.city,
+				country: fuelStation.country,
+				postcode: fuelStation.postcode,
+				sourceHash: fuelStation.sourceHash
+			})
+			.from(fuelStation)
+			.where(inArray(fuelStation.nodeId, nodeIds))
+
+		const existingById = new Map<string, ExistingStationFields>(
+			existingStations.map((station) => [station.nodeId, station])
+		)
+
+		const reusedById = new Map<string, StationUpsertRecord>()
+		const stationsToClean: PreprocessedStation[] = []
+
+		for (const station of preprocessed) {
+			const existing = existingById.get(station.nodeId)
+			if (!existing || existing.sourceHash !== station.originalHash) {
+				stationsToClean.push(station)
+				continue
+			}
+
+			reusedById.set(station.nodeId, {
+				nodeId: station.nodeId,
+				tradingName: existing.tradingName ?? station.tradingName,
+				brandName: existing.brandName ?? station.brandName,
+				phone: station.phone,
+				isMotorwayServiceStation: station.isMotorwayServiceStation,
+				isSupermarketServiceStation: station.isSupermarketServiceStation,
+				address1: existing.address1,
+				address2: existing.address2,
+				city: existing.city,
+				country: existing.country,
+				postcode: existing.postcode,
+				latitude: station.coords.latitude,
+				longitude: station.coords.longitude,
+				coordinatesValid: station.coords.valid,
+				amenities: station.amenities,
+				openingTimes: station.openingTimes,
+				fuelTypes: station.fuelTypes,
+				temporarilyClosed: station.temporarilyClosed,
+				permanentClosureDate: station.permanentClosureDate,
+				sourceHash: station.originalHash,
+				potentialDuplicates: null
+			})
+		}
+
+		const cleanedById = new Map<string, StationUpsertRecord>()
+		if (stationsToClean.length > 0) {
+			console.log(
+				`Re-running station cleaning for ${stationsToClean.length}/${preprocessed.length} changed station rows...`
+			)
+			const cleanedStations =
+				await this.stationInfoHelper.cleanStations(stationsToClean)
+			for (const station of cleanedStations) {
+				cleanedById.set(station.nodeId, {
+					nodeId: station.nodeId,
+					tradingName: station.tradingName,
+					brandName: station.brandName,
+					phone: station.phone,
+					isMotorwayServiceStation: station.isMotorwayServiceStation,
+					isSupermarketServiceStation: station.isSupermarketServiceStation,
+					address1: station.address1,
+					address2: station.address2,
+					city: station.city,
+					country: station.country,
+					postcode: station.postcode,
+					latitude: station.latitude,
+					longitude: station.longitude,
+					coordinatesValid: station.coordinatesValid,
+					amenities: station.amenities,
+					openingTimes: station.openingTimes,
+					fuelTypes: station.fuelTypes,
+					temporarilyClosed: station.temporarilyClosed,
+					permanentClosureDate: station.permanentClosureDate,
+					sourceHash: station.originalHash,
+					potentialDuplicates: null
+				})
+			}
+		}
+
+		const stationInfo = preprocessed.map((station) => {
+			const reused = reusedById.get(station.nodeId)
+			if (reused) {
+				return reused
+			}
+
+			const cleaned = cleanedById.get(station.nodeId)
+			if (!cleaned) {
+				throw new Error(`Missing prepared station row for ${station.nodeId}`)
+			}
+
+			return cleaned
+		})
+
+		return this.attachPotentialDuplicates(stationInfo)
+	}
+
+	private async attachPotentialDuplicates(
+		stationInfo: StationUpsertRecord[]
+	): Promise<StationUpsertRecord[]> {
+		if (stationInfo.length === 0) {
+			return []
+		}
+
+		const changedNodeIds = stationInfo.map((station) => station.nodeId)
+		const postcodes = [
+			...new Set(
+				stationInfo
+					.map((station) => station.postcode)
+					.filter((postcode): postcode is string => Boolean(postcode))
+			)
+		]
+		const brandNames = [
+			...new Set(
+				stationInfo
+					.map((station) => station.brandName)
+					.filter((brandName): brandName is string => Boolean(brandName))
+			)
+		]
+
+		const targetCandidates: DuplicateCandidate[] = stationInfo.map(
+			(station) => ({
+				nodeId: station.nodeId,
+				latitude: station.latitude,
+				longitude: station.longitude,
+				address1: station.address1,
+				postcode: station.postcode,
+				brandName: station.brandName
+			})
+		)
+
+		const candidateConditions = []
+		if (postcodes.length > 0) {
+			candidateConditions.push(inArray(fuelStation.postcode, postcodes))
+		}
+		if (brandNames.length > 0) {
+			candidateConditions.push(inArray(fuelStation.brandName, brandNames))
+		}
+
+		const existingCandidates =
+			candidateConditions.length === 0
+				? []
+				: await this.db
+						.select({
+							nodeId: fuelStation.nodeId,
+							latitude: fuelStation.latitude,
+							longitude: fuelStation.longitude,
+							address1: fuelStation.address1,
+							postcode: fuelStation.postcode,
+							brandName: fuelStation.brandName
+						})
+						.from(fuelStation)
+						.where(
+							and(
+								not(inArray(fuelStation.nodeId, changedNodeIds)),
+								or(...candidateConditions)
+							)
+						)
+
+		const narrowedExistingCandidates: DuplicateCandidate[] = existingCandidates
+			.filter(
+				(
+					candidate
+				): candidate is typeof candidate & {
+					latitude: number
+					longitude: number
+				} => candidate.latitude !== null && candidate.longitude !== null
+			)
+			.map((candidate) => ({
+				nodeId: candidate.nodeId,
+				latitude: candidate.latitude,
+				longitude: candidate.longitude,
+				address1: candidate.address1,
+				postcode: candidate.postcode,
+				brandName: candidate.brandName
+			}))
+
+		const duplicates = detectDuplicatesForTargets(targetCandidates, [
+			...targetCandidates,
+			...narrowedExistingCandidates
+		])
+
+		return stationInfo.map((station) => ({
+			...station,
+			potentialDuplicates: duplicates.get(station.nodeId) ?? null
+		}))
+	}
+
+	private async backfillPrices() {
+		const timeStarted = new Date()
+
+		console.log('Backfilling prices')
+		const priceInfo = await this.priceInfoHelper.backfillPrices()
+		await this.insertKnownFuelTypes([
+			...new Set(priceInfo.map((price) => price.typeCode))
+		])
+		await this.insertPricingEvents(priceInfo)
+		await this.markBackfillComplete(DataRegion.Prices, timeStarted)
+		console.log('Price backfill done.')
+	}
+
+	private async backfillStations() {
+		const timeStarted = new Date()
+
+		console.log('Backfilling stations')
+		const stationInfo = (await this.stationInfoHelper.backfillStations()).map(
+			toStationUpsertRecord
+		)
+		await this.upsertFuelStations(stationInfo, {
+			onlyWhenSourceHashChanged: true
+		})
+		await this.insertStationRelations(stationInfo)
+		await this.markBackfillComplete(DataRegion.Stations, timeStarted)
 		console.log('Station backfill done.')
+	}
+
+	private async updateStations(metadata: MetadataRow) {
+		const timeStarted = new Date()
+
+		console.log('Updating stations')
+		const preprocessed = await this.stationInfoHelper.fetchIncrementalStations(
+			metadata.lastUpdatedAt
+		)
+		if (preprocessed.length === 0) {
+			console.log('No station changes returned from incremental endpoint.')
+			await this.markUpdateComplete(DataRegion.Stations, timeStarted)
+			return
+		}
+
+		const stationInfo = await this.buildStationUpdateRecords(preprocessed)
+		await this.upsertFuelStations(stationInfo, {
+			onlyWhenSourceHashChanged: false
+		})
+		await this.deleteStationRelations(
+			stationInfo.map((station) => station.nodeId)
+		)
+		await this.insertStationRelations(stationInfo)
+		await this.markUpdateComplete(DataRegion.Stations, timeStarted)
+		console.log('Station update done.')
+	}
+
+	private async updatePrices(metadata: MetadataRow) {
+		const timeStarted = new Date()
+
+		console.log('Updating prices')
+		const priceInfo = await this.priceInfoHelper.fetchIncrementalPrices(
+			metadata.lastUpdatedAt
+		)
+		await this.insertKnownFuelTypes([
+			...new Set(priceInfo.map((price) => price.typeCode))
+		])
+		await this.insertPricingEvents(priceInfo)
+		await this.markUpdateComplete(DataRegion.Prices, timeStarted)
+		console.log('Price update done.')
 	}
 
 	// ─── MCP Server ────────────────────────────────────────────────────────
@@ -494,5 +923,12 @@ export class PetrolBabyObject extends McpAgent<Env> {
 				}
 			}
 		)
+
+		const promise = this.startMaintenance('backfill', () =>
+			this.backfillMissingRegions()
+		)
+		if (promise) {
+			promise.catch((error) => console.error('backfill failed:', error))
+		}
 	}
 }
