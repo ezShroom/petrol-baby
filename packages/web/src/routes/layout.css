@@ -1,2 +1,28 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
+
+@font-face {
+	font-family: 'Paper Mono';
+	font-style: normal;
+	font-weight: 400;
+	font-display: swap;
+	src: url('$lib/assets/PaperMono-Regular.woff2') format('woff2');
+}
+
+@theme {
+	--color-bg: #191616;
+	--color-bg-raised: #333030;
+	--color-surface: #1c1c1c;
+	--color-surface-raised: #262626;
+	--color-text-heading: #f0ede8;
+	--color-text-body: #c4b1b1;
+	--color-text-link: #fbdede;
+	--color-text-muted: #6b6560;
+	--color-accent: #5ce1e6;
+	--color-border: #3a3a3a;
+	--color-bubble-sent: #2d8cf0;
+	--color-bubble-text: #e8e0da;
+	--font-display: 'Innovator Grotesk VF', sans-serif;
+	--font-body: 'Innovator Grotesk VF', sans-serif;
+	--font-mono: 'Paper Mono', monospace;
+}
