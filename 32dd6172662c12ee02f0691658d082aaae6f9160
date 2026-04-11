@@ -1,0 +1,23 @@
+packages/web/src/lib/components/Footer.svelte
+  110aed907f889cb8 24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "32dd6172662c12ee02f0691658d082aaae6f9160",
+  "prompts": {
+    "110aed907f889cb8": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "4d40a5b2-e877-4b91-aa72-b5054ee2be8c",
+        "model": "default"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
