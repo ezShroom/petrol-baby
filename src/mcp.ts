@@ -30,6 +30,7 @@ import {
 	type StationRecordWithDuplicates
 } from './data/info_helper'
 import { PriceInfoHelper, type BackfillPriceRecord } from './data/price_helper'
+import { PriceQueryHelper } from './data/price_query_helper'
 import migrations from './db/generated/migrations.js'
 import { setAll } from './db/helpers'
 import {
@@ -44,11 +45,19 @@ import {
 	stationOpeningTime
 } from './db/schema'
 import { FuelFinderOAuth } from './oauth'
+import { normalizePriceQuery } from './query/normalize_price_query'
+import { buildListPricesText, buildSummaryText } from './query/price_query_text'
+import { summarisePriceRows } from './query/price_summary'
 import { DataRegion } from './types/DataRegion'
+import { ListPricesOutputSchema } from './types/ListPricesOutput'
+import { PriceQueryInputSchema } from './types/PriceQueryInput'
 import { StationOpeningDay } from './types/StationOpeningDay'
+import { SummarisePricesOutputSchema } from './types/SummarisePricesOutput'
 
 const STATION_UPDATE_INTERVAL_MS = ms('15m')
 const PRICE_UPDATE_INTERVAL_MS = ms('1m')
+const LIST_RESULTS_LIMIT = 20
+const LIST_RESULTS_FETCH_LIMIT = LIST_RESULTS_LIMIT + 1
 
 type MaintenanceKind = 'backfill' | 'scheduled'
 
@@ -130,6 +139,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 	private oauth: FuelFinderOAuth
 	private stationInfoHelper
 	private priceInfoHelper
+	private priceQueryHelper: PriceQueryHelper
 	private maintenancePromise: Promise<void> | null = null
 	private maintenanceKind: MaintenanceKind | null = null
 
@@ -137,6 +147,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		super(ctx, env)
 		this.db = drizzle(ctx.storage, { logger: false })
 		this.oauth = new FuelFinderOAuth(this.db, env)
+		this.priceQueryHelper = new PriceQueryHelper(this.db)
 
 		this.stationInfoHelper = new StationInfoHelper({
 			env: this.env,
@@ -873,6 +884,15 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		console.log('Price update done.')
 	}
 
+	private async ensurePriceQueryDataReady() {
+		const { stations, prices } = await this.readMetadataRows()
+		if (!stations || !prices) {
+			throw new Error(
+				'Fuel data is still being backfilled. Try this query again shortly.'
+			)
+		}
+	}
+
 	// ─── MCP Server ────────────────────────────────────────────────────────
 
 	override async init(): Promise<void> {
@@ -901,25 +921,132 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			})
 		)
 		server.registerTool(
-			'oldest_stations_ever',
+			'known_fuel_types',
 			{
-				title: 'Oldest petrol stations ever',
+				title: 'Known fuel types',
 				description:
-					"Returns the first page of the fuel API results (maybe they're not really old)",
-				inputSchema: {},
-				outputSchema: {
-					response: z.array(z.string())
-				}
+					'Return the currently known fuel type codes that can be used in fuel price queries.',
+				outputSchema: z.object({
+					fuelTypes: z.array(z.string())
+				})
 			},
 			async () => {
+				const fuelTypes =
+					await this.priceQueryHelper.listKnownCodes('known_type')
 				return {
 					content: [
 						{
 							type: 'text',
-							text: 'text'
+							text:
+								fuelTypes.length === 0
+									? 'No known fuel types have been loaded yet.'
+									: `Known fuel types: ${fuelTypes.join(', ')}`
 						}
 					],
-					structuredContent: { response: ['My one! I own one, totally'] }
+					structuredContent: { fuelTypes }
+				}
+			}
+		)
+		server.registerTool(
+			'known_amenities',
+			{
+				title: 'Known amenities',
+				description:
+					'Return the currently known amenity codes that can be used as station filters.',
+				outputSchema: z.object({
+					amenities: z.array(z.string())
+				})
+			},
+			async () => {
+				const amenities =
+					await this.priceQueryHelper.listKnownCodes('known_amenity')
+				return {
+					content: [
+						{
+							type: 'text',
+							text:
+								amenities.length === 0
+									? 'No known amenities have been loaded yet.'
+									: `Known amenities: ${amenities.join(', ')}`
+						}
+					],
+					structuredContent: { amenities }
+				}
+			}
+		)
+		server.registerTool(
+			'list_prices',
+			{
+				title: 'List fuel prices',
+				description:
+					'Find actual stations and their current price for one fuel type. Returns up to 20 stations, sorted cheapest first, and clearly flags when more stations matched. If the list is truncated, use summarise_prices to work with larger matching sets.',
+				inputSchema: PriceQueryInputSchema,
+				outputSchema: ListPricesOutputSchema
+			},
+			async (input) => {
+				await this.ensurePriceQueryDataReady()
+				const query = normalizePriceQuery(input)
+				const baseRows = await this.priceQueryHelper.queryCurrentPriceRows(
+					query,
+					LIST_RESULTS_FETCH_LIMIT
+				)
+				const isTruncated = baseRows.length > LIST_RESULTS_LIMIT
+				const hydratedRows =
+					await this.priceQueryHelper.hydrateStationPriceRows(
+						query,
+						baseRows.slice(0, LIST_RESULTS_LIMIT)
+					)
+				const result: z.infer<typeof ListPricesOutputSchema> = {
+					query,
+					items: hydratedRows,
+					returnedCount: hydratedRows.length,
+					isTruncated,
+					truncationMessage: isTruncated
+						? 'More than 20 stations matched this query, so only the first 20 cheapest results are included. Use summarise_prices if you need to work across the full matching set.'
+						: null,
+					matchedCountLowerBound: isTruncated
+						? LIST_RESULTS_FETCH_LIMIT
+						: hydratedRows.length,
+					sort: 'price_ascending'
+				}
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: buildListPricesText(result)
+						}
+					],
+					structuredContent: result
+				}
+			}
+		)
+		server.registerTool(
+			'summarise_prices',
+			{
+				title: 'Summarise fuel prices',
+				description:
+					'Summarise the current prices for the same query model as list_prices. Returns min, max, mean, quartiles, and median, with real stations attached to the highlighted observed prices. Use highlightSampleSize to ask for a fuzzier set of nearby stations around each highlighted point.',
+				inputSchema: PriceQueryInputSchema,
+				outputSchema: SummarisePricesOutputSchema
+			},
+			async (input) => {
+				await this.ensurePriceQueryDataReady()
+				const query = normalizePriceQuery(input)
+				const baseRows =
+					await this.priceQueryHelper.queryCurrentPriceRows(query)
+				const hydratedRows =
+					await this.priceQueryHelper.hydrateStationPriceRows(query, baseRows)
+				const result = summarisePriceRows(query, hydratedRows)
+
+				return {
+					content: [
+						{
+							type: 'text',
+							text: buildSummaryText(result)
+						}
+					],
+					structuredContent: result
 				}
 			}
 		)
