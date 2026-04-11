@@ -92,7 +92,7 @@
 					Poke is the easiest way to get started with petrol.baby.
 				</p>
 				<a
-					href="https://poke.dev/mcp?url=https://petrol.baby/mcp"
+					href="https://poke.com/r/UcGmvmDWcAB"
 					class="poke-btn group flex items-center justify-center gap-3 rounded-xl bg-white px-6 py-4 text-lg font-medium text-black transition-all duration-200 hover:shadow-lg hover:shadow-white/10 active:scale-[0.98]"
 				>
 					<img src={pokeLogo} alt="Poke" class="h-5 w-5" />
