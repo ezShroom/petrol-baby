@@ -11,7 +11,7 @@
 	"services": [
 		{
 			"binding": "MCP_BACKEND",
-			"service": "petrol-baby"
+			"service": "petrol-baby-mcp"
 		}
 	],
 	"workers_dev": false
