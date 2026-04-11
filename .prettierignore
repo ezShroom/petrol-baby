@@ -9,4 +9,6 @@ dist/
 build/
 generated/
 .wrangler/
+.svelte-kit/
+.turbo/
 worker-configuration.d.ts

@@ -1,22 +1,23 @@
-# petrol-baby
+# petrol.baby
 
-Minimal Cloudflare Worker + Durable Object MCP starting point.
+Fuel price MCP server with a SvelteKit frontend, deployed on Cloudflare Workers.
 
-## What is here
+## Monorepo structure
 
-- `src/index.ts` exposes a simple health check at `/healthz` and routes MCP traffic to `/mcp`.
-- `src/petrol-baby-mcp.ts` defines `PetrolBabyObject` as an `McpAgent`, following the same basic pattern used in `../poke-steno`.
-- The durable object persists a tiny `greetings` table in DO SQLite so there is a stateful example to build on.
+| Package | Description |
+| --- | --- |
+| `packages/web` | SvelteKit frontend (public-facing worker) |
+| `packages/worker` | MCP backend (Durable Object + Cloudflare Worker) |
 
-## MCP tools
-
-- `say_hello`: stores and returns a greeting, optionally personalized with `name`.
-- `recent_greetings`: returns the latest stored greetings from the durable object's SQLite storage.
+The web worker is the public entrypoint. It serves the frontend and proxies `/mcp` requests to the backend worker via a Cloudflare service binding.
 
 ## Commands
 
 ```bash
-bun install
-bun run dev
-bun run check-types
+pnpm install
+pnpm dev
+pnpm build
+pnpm check-types
+pnpm lint
+pnpm style
 ```

@@ -1,0 +1,34 @@
+{
+	"$schema": "https://turborepo.com/schema.json",
+	"globalPassThroughEnv": [
+		"USE_API",
+		"FUEL_FINDER_CLIENT_ID",
+		"FUEL_FINDER_CLIENT_SECRET",
+		"OPENROUTER_API_KEY"
+	],
+	"tasks": {
+		"build": {
+			"dependsOn": ["^build"],
+			"outputs": ["dist/**", "build/**", ".svelte-kit/**"],
+			"inputs": ["**/*.ts", "**/*.js", "**/*.svelte", "src/**"]
+		},
+		"lint": {
+			"dependsOn": ["^lint"],
+			"inputs": [
+				"$TURBO_ROOT$/eslint.config.js",
+				"**/*.ts",
+				"**/*.js",
+				"**/*.svelte"
+			],
+			"outputs": []
+		},
+		"dev": {
+			"persistent": true,
+			"cache": false
+		},
+		"check-types": {
+			"dependsOn": ["^build", "^check-types"],
+			"outputs": []
+		}
+	}
+}

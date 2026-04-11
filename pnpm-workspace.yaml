@@ -1,0 +1,15 @@
+packages:
+  - packages/*
+
+catalogs:
+  drizzle:
+    drizzle-kit: ^0.31.10
+    drizzle-orm: ^0.45.2
+  wrangler:
+    wrangler: ^4.79.0
+  zod:
+    zod: ^4.3.6
+
+onlyBuiltDependencies:
+  - esbuild
+  - '@tailwindcss/oxide'

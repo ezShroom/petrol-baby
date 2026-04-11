@@ -1,0 +1,32 @@
+{
+	"name": "@petrol-baby/worker",
+	"version": "0.0.1",
+	"type": "module",
+	"private": true,
+	"scripts": {
+		"dev": "wrangler dev",
+		"build": "wrangler deploy --dry-run",
+		"prepare": "pnpm run types",
+		"types": "wrangler types",
+		"check-types": "tsc --noEmit",
+		"lint": "eslint ."
+	},
+	"dependencies": {
+		"@modelcontextprotocol/sdk": "^1.29.0",
+		"@openrouter/sdk": "^0.11.2",
+		"agents": "^0.9.0",
+		"drizzle-orm": "catalog:drizzle",
+		"http-status-codes": "^2.3.0",
+		"ms": "^4.0.0-nightly.202508271359",
+		"wrangler": "catalog:wrangler",
+		"zod": "catalog:zod"
+	},
+	"devDependencies": {
+		"drizzle-kit": "catalog:drizzle",
+		"typescript": "^6.0.2"
+	},
+	"exports": {
+		".": "./src/type_export.ts",
+		"./package.json": "./package.json"
+	}
+}
