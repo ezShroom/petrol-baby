@@ -37,3 +37,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 .claude/
 .turbo/
 .svelte-kit/
+
+# Proprietary fonts (downloaded from R2 in CI)
+packages/web/src/lib/assets/InnovatorGrotesk*

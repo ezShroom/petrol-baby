@@ -5,6 +5,7 @@
 	"private": true,
 	"scripts": {
 		"dev": "cross-env NODE_ENV=development vite dev",
+		"fetch-font": "node scripts/fetch-font.js",
 		"build": "vite build",
 		"preview": "wrangler dev .svelte-kit/cloudflare/_worker.js --port 4173",
 		"prepare": "pnpm run types && svelte-kit sync || echo ''",
