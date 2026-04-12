@@ -22,6 +22,7 @@
 		"zod": "catalog:zod"
 	},
 	"devDependencies": {
+		"@types/node": "^25.6.0",
 		"drizzle-kit": "catalog:drizzle",
 		"typescript": "^6.0.2"
 	},
