@@ -1,4 +1,5 @@
 <script lang="ts">
+	/* eslint-disable svelte/no-navigation-without-resolve */
 	import { resolve } from '$app/paths'
 
 	interface Props {
@@ -27,7 +28,7 @@
 		{/if}
 		<a
 			// @ts-expect-error We cannot resolve everything.
-			href={resolve(link.external ? link.href : link.href)}
+			href={link.external ? link.href : resolve(link.href)}
 			class="hover:text-text-body transition-colors">{link.label}</a
 		>
 	{/each}
