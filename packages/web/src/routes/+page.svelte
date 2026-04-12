@@ -66,7 +66,7 @@
 		>
 			<div class="w-full max-w-[520px]">
 				<h1
-					class="font-display text-text-heading text-5xl leading-[1.05] font-extrabold tracking-tight sm:text-6xl lg:text-7xl"
+					class="font-display text-text-heading text-5xl leading-[1.05] font-extrabold tracking-tight select-none sm:text-6xl lg:text-7xl"
 				>
 					<span class="text-stroke">petrol.baby</span> is an integration to help you
 					find better fuel prices.
@@ -309,7 +309,6 @@
 				rgba(30, 140, 100, 0.25) 0%,
 				transparent 55%
 			);
-		animation: aurora-shift 20s ease-in-out infinite alternate;
 	}
 
 	.aurora-bg::after {
@@ -327,22 +326,6 @@
 				rgba(50, 200, 220, 0.3) 0%,
 				transparent 50%
 			);
-		animation: aurora-shift 25s ease-in-out infinite alternate-reverse;
-	}
-
-	@keyframes aurora-shift {
-		0% {
-			transform: scale(1) translate(0, 0);
-		}
-		33% {
-			transform: scale(1.05) translate(2%, -2%);
-		}
-		66% {
-			transform: scale(0.98) translate(-1%, 2%);
-		}
-		100% {
-			transform: scale(1.03) translate(-2%, -1%);
-		}
 	}
 
 	.copy-target,

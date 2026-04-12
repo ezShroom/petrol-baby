@@ -12,13 +12,18 @@
 		What petrol.baby collects
 	</h2>
 	<p>
-		The petrol.baby MCP server does not collect, store, or process any personal
-		data. Your queries are forwarded to the
-		<a
-			href="https://www.fuel-finder.service.gov.uk/"
-			class="text-text-link underline underline-offset-2">Fuel Finder</a
-		>
-		public API to retrieve fuel price data and are not logged or retained.
+		The petrol.baby MCP server processes your requests against a local database
+		in order to respond to them, after which the content of the request is
+		discarded. Only the information that you or your agent choose to provide by
+		making requests, such as a region to check prices in, is processed.
+	</p>
+	<p>
+		If you open a location probe link and allow access to your precise
+		geolocation, your coordinates will be retained for one day to allow your
+		agent to retrieve them, after which they are automatically discarded.
+	</p>
+	<p>
+		By using the integration, you consent your data being processed in this way.
 	</p>
 
 	<h2 class="text-text-heading text-xl font-semibold">Analytics</h2>
@@ -44,6 +49,15 @@
 	<p>
 		This policy may be updated from time to time. Continued use of petrol.baby
 		constitutes acceptance of the current policy.
+	</p>
+
+	<h2 class="text-text-heading text-xl font-semibold">Contact</h2>
+	<p>
+		If you have any questions about this privacy policy or want to exercise your
+		GDPR rights, contact <a
+			href="mailto:privacy@petrol.baby"
+			class="text-text-link underline underline-offset-2">privacy@petrol.baby</a
+		>.
 	</p>
 </ProsePage>
 

@@ -17,13 +17,20 @@
 		>
 		and is provided under the terms of its licence.
 	</p>
+	<p>
+		Contains public sector information licensed under the <a
+			href="https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/"
+			class="text-text-link underline underline-offset-2"
+			>Open Government Licence v3.0</a
+		> with additional terms.
+	</p>
 
 	<h2 class="text-text-heading text-xl font-semibold">Fair usage</h2>
 	<p>
 		petrol.baby is a shared, hosted service. Please don't set up automations
-		that poll the MCP endpoint on a recurring basis (e.g. every few minutes).
-		The service is designed for interactive use through an agent, not as a data
-		pipeline.
+		that poll the MCP endpoint frequently on a recurring basis (e.g. every few
+		minutes). The service is designed for interactive use through an agent, not
+		as a data pipeline.
 	</p>
 	<p>
 		If you need high-frequency or automated access to fuel price data, the
