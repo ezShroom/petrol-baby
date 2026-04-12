@@ -58,17 +58,11 @@ export default {
 		return new Response('Not found', { status: 404 })
 	},
 
-	async scheduled(
-		_controller: ScheduledController,
-		env: Env,
-		ctx: ExecutionContext
-	): Promise<void> {
+	async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
 		const stub = getScheduledMaintenanceStub(env.PETROL_BABY_OBJECT)
-		ctx.waitUntil(
-			stub
-				.runScheduledMaintenance()
-				.catch((error) => console.error('scheduled maintenance failed:', error))
-		)
+		await stub
+			.runScheduledMaintenance()
+			.catch((error) => console.error('scheduled maintenance failed:', error))
 	}
 } satisfies ExportedHandler<Env>
 
