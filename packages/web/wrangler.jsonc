@@ -14,5 +14,12 @@
 			"service": "petrol-baby-mcp"
 		}
 	],
+	"observability": {
+		"logs": {
+			"enabled": true,
+			"invocation_logs": true
+		},
+		"traces": {}
+	},
 	"workers_dev": false
 }
