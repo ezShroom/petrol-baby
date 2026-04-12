@@ -3,7 +3,7 @@
 	"name": "petrol-baby-mcp",
 	"main": "src/index.ts",
 	"compatibility_date": "2026-04-01",
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_flags": [],
 	"workers_dev": false,
 	"triggers": {
 		"crons": ["* * * * *"]
