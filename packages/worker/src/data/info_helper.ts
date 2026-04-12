@@ -6,7 +6,7 @@ import {
 	type DuplicateCandidate
 } from '../cleanup/duplicates'
 import { preprocess, type PreprocessedStation } from '../cleanup/preprocess'
-import { baseUrl, USER_AGENT } from '../constants'
+import { baseUrl, extraHeaders, USER_AGENT } from '../constants'
 import type { FuelFinderOAuth } from '../oauth'
 import { parseJsonResponse } from '../response'
 import type { FuelFinderStation } from '../types/FuelFinderStation'
@@ -91,7 +91,8 @@ export class StationInfoHelper {
 					headers: {
 						Accept: 'application/json',
 						'Content-Type': 'application/json',
-						'User-Agent': USER_AGENT
+						'User-Agent': USER_AGENT,
+						...extraHeaders(this.env)
 					}
 				}
 			)

@@ -1,7 +1,7 @@
 import { StatusCodes } from 'http-status-codes'
 import { ms } from 'ms'
 import { authenticatedPatientFetch } from '../authenticated_fetch'
-import { baseUrl, USER_AGENT } from '../constants'
+import { baseUrl, extraHeaders, USER_AGENT } from '../constants'
 import type { FuelFinderOAuth } from '../oauth'
 import { parseJsonResponse } from '../response'
 import type { FuelFinderStationPrice } from '../types/FuelFinderStationPrice'
@@ -63,7 +63,8 @@ export class PriceInfoHelper {
 					headers: {
 						Accept: 'application/json',
 						'Content-Type': 'application/json',
-						'User-Agent': USER_AGENT
+						'User-Agent': USER_AGENT,
+						...extraHeaders(this.env)
 					}
 				}
 			)

@@ -1,6 +1,6 @@
 import type { DrizzleSqliteDODatabase } from 'drizzle-orm/durable-sqlite'
 import { StatusCodes } from 'http-status-codes'
-import { baseUrl, USER_AGENT } from './constants'
+import { baseUrl, extraHeaders, USER_AGENT } from './constants'
 import { key } from './db/schema'
 import { patientFetch } from './patient_fetch'
 import { parseJsonResponse } from './response'
@@ -147,7 +147,8 @@ export class FuelFinderOAuth {
 				headers: {
 					Accept: 'application/json',
 					'Content-Type': 'application/json',
-					'User-Agent': USER_AGENT
+					'User-Agent': USER_AGENT,
+					...extraHeaders(this.env)
 				},
 				body: JSON.stringify({
 					client_id: this.env.FUEL_FINDER_CLIENT_ID,
@@ -204,7 +205,8 @@ export class FuelFinderOAuth {
 				headers: {
 					Accept: 'application/json',
 					'Content-Type': 'application/json',
-					'User-Agent': USER_AGENT
+					'User-Agent': USER_AGENT,
+					...extraHeaders(this.env)
 				},
 				body: JSON.stringify({
 					client_id: this.env.FUEL_FINDER_CLIENT_ID,
