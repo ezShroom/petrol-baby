@@ -13,6 +13,9 @@
 		},
 		"traces": {}
 	},
+	"limits": {
+		"subrequests": 10000
+	},
 	"triggers": {
 		"crons": ["* * * * *"]
 	},
