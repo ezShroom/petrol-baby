@@ -75,6 +75,9 @@ jobs:
           node-version: 22
           cache: pnpm
 
+      - name: Create worker .env for type generation
+        run: cp packages/worker/.env.example packages/worker/.env
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
@@ -96,6 +99,9 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
+
+      - name: Create worker .env for type generation
+        run: cp packages/worker/.env.example packages/worker/.env
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
