@@ -1,0 +1,37 @@
+packages/worker/src/query/normalize_price_query.ts
+  2e90b857310d481a 88-89
+packages/worker/src/types/PriceQueryInput.ts
+  2e90b857310d481a 14-21
+packages/worker/src/types/NormalizedPriceQuery.ts
+  2e90b857310d481a 12-13
+packages/worker/src/types/PriceHistoryOutput.ts
+  2e90b857310d481a 1-21
+packages/worker/src/mcp.ts
+  2e90b857310d481a 57-58,68,1033,1080,1105-1197
+packages/worker/src/data/price_query_helper.ts
+  2e90b857310d481a 4,7,11,100-104,111,275-333
+packages/worker/src/types/PriceHistoryInput.ts
+  2e90b857310d481a 1-28
+packages/worker/src/query/price_query_text.ts
+  2e90b857310d481a 15-18,20,22,27,31,44,46,50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "6d0b6253128cdf68a582e0ec75e97a7488f89b9e",
+  "prompts": {
+    "2e90b857310d481a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_277c00ec3ffeP1rXaN8huKoSk6",
+        "model": "openrouter/anthropic/claude-opus-4.6"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 238,
+      "total_deletions": 11,
+      "accepted_lines": 238,
+      "overriden_lines": 0
+    }
+  }
+}
