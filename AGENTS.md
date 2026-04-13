@@ -6,7 +6,8 @@ petrol.baby is a pnpm monorepo with two packages:
   provides agents with information about fuel prices from the
   [Fuel Finder Public API](https://www.developer.fuel-finder.service.gov.uk/public-api),
   and allows them to easily filter through it in a way that is useful to the
-  user. We also store 2 days of rolling history.
+  user. We retain up to 14 days of pricing history, except the latest event
+  per station and fuel type is always kept even if older.
 - `packages/web` — a SvelteKit frontend deployed as a Cloudflare Worker. It
   is the public-facing entrypoint for all traffic and proxies `/mcp` requests
   to the backend worker via a Cloudflare service binding.

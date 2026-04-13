@@ -2,9 +2,12 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { McpAgent } from 'agents/mcp'
 import {
 	and,
+	eq,
 	getTableColumns,
 	inArray,
+	lt,
 	not,
+	notExists,
 	or,
 	sql,
 	type InferInsertModel,
@@ -15,6 +18,7 @@ import {
 	type DrizzleSqliteDODatabase
 } from 'drizzle-orm/durable-sqlite'
 import { migrate } from 'drizzle-orm/durable-sqlite/migrator'
+import { max } from 'drizzle-orm/sql/functions/aggregate'
 import { ms } from 'ms'
 import { z } from 'zod'
 import { version } from '../package.json'
@@ -56,6 +60,7 @@ import { SummarisePricesOutputSchema } from './types/SummarisePricesOutput'
 
 const STATION_UPDATE_INTERVAL_MS = ms('15m')
 const PRICE_UPDATE_INTERVAL_MS = ms('1m')
+const PRICING_EVENT_RETENTION_MS = ms('14d')
 const LIST_RESULTS_LIMIT = 20
 const LIST_RESULTS_FETCH_LIMIT = LIST_RESULTS_LIMIT + 1
 
@@ -160,6 +165,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 
 		ctx.blockConcurrencyWhile(async () => {
 			await migrate(this.db, migrations)
+			await this.pruneOldPricingEvents()
 			await this.oauth.initialize()
 		})
 	}
@@ -170,6 +176,49 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			stations: metadata.find((row) => row.region === DataRegion.Stations),
 			prices: metadata.find((row) => row.region === DataRegion.Prices)
 		}
+	}
+
+	/**
+	 * Delete pricing events older than 14 days, unless the row is the latest
+	 * event for its (nodeId, typeCode) grouping.  Runs once at startup inside
+	 * `blockConcurrencyWhile` so it cannot race with reads or writes.
+	 */
+	private async pruneOldPricingEvents() {
+		const cutoff = new Date(Date.now() - PRICING_EVENT_RETENTION_MS)
+
+		const latestPerGroup = this.db.$with('latest_per_group').as(
+			this.db
+				.select({
+					nodeId: pricingEvent.nodeId,
+					typeCode: pricingEvent.typeCode,
+					latestTimestamp: max(pricingEvent.timestamp).as('latest_timestamp')
+				})
+				.from(pricingEvent)
+				.groupBy(pricingEvent.nodeId, pricingEvent.typeCode)
+		)
+
+		await this.db
+			.with(latestPerGroup)
+			.delete(pricingEvent)
+			.where(
+				and(
+					lt(pricingEvent.timestamp, cutoff),
+					notExists(
+						this.db
+							.select({ n: sql`1` })
+							.from(latestPerGroup)
+							.where(
+								and(
+									eq(latestPerGroup.nodeId, pricingEvent.nodeId),
+									eq(latestPerGroup.typeCode, pricingEvent.typeCode),
+									eq(latestPerGroup.latestTimestamp, pricingEvent.timestamp)
+								)
+							)
+					)
+				)
+			)
+
+		console.log('Pruned old pricing events (>14 days, non-latest).')
 	}
 
 	private startMaintenance(
