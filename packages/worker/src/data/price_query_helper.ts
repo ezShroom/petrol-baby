@@ -1,11 +1,14 @@
 import {
 	and,
 	asc,
+	desc,
 	eq,
 	exists,
+	gte,
 	inArray,
 	isNull,
 	like,
+	lte,
 	or,
 	type SQL
 } from 'drizzle-orm'
@@ -94,13 +97,18 @@ export class PriceQueryHelper {
 		query: NormalizedPriceQuery,
 		limit?: number
 	): Promise<StationPriceSqlRow[]> {
+		const atCutoff = query.at ? new Date(query.at) : null
+		const latestConditions: SQL[] = [eq(pricingEvent.typeCode, query.fuelType)]
+		if (atCutoff) {
+			latestConditions.push(lte(pricingEvent.timestamp, atCutoff))
+		}
 		const latestPerStation = this.db
 			.select({
 				nodeId: pricingEvent.nodeId,
 				latestTimestamp: max(pricingEvent.timestamp).as('latestTimestamp')
 			})
 			.from(pricingEvent)
-			.where(eq(pricingEvent.typeCode, query.fuelType))
+			.where(and(...latestConditions))
 			.groupBy(pricingEvent.nodeId)
 			.as('latest_per_station')
 
@@ -264,4 +272,63 @@ export class PriceQueryHelper {
 			availableFuelTypes: fuelTypesByNodeId.get(row.nodeId) ?? []
 		}))
 	}
+
+	async queryStationPriceHistory(options: {
+		nodeId: string
+		fuelType: string
+		from?: Date
+		to?: Date
+		limit: number
+	}): Promise<PriceHistoryRow[]> {
+		const conditions: SQL[] = [
+			eq(pricingEvent.nodeId, options.nodeId),
+			eq(pricingEvent.typeCode, options.fuelType)
+		]
+		if (options.from) {
+			conditions.push(gte(pricingEvent.timestamp, options.from))
+		}
+		if (options.to) {
+			conditions.push(lte(pricingEvent.timestamp, options.to))
+		}
+
+		const rows = await this.db
+			.select({
+				timestamp: pricingEvent.timestamp,
+				pricePence: pricingEvent.pricePence
+			})
+			.from(pricingEvent)
+			.where(and(...conditions))
+			.orderBy(desc(pricingEvent.timestamp))
+			.limit(options.limit)
+
+		return rows.map((row) => ({
+			timestamp: toIsoTimestamp(row.timestamp),
+			pricePence: row.pricePence
+		}))
+	}
+
+	async lookupStation(nodeId: string): Promise<{
+		nodeId: string
+		tradingName: string | null
+		brandName: string | null
+		postcode: string | null
+	} | null> {
+		const rows = await this.db
+			.select({
+				nodeId: fuelStation.nodeId,
+				tradingName: fuelStation.tradingName,
+				brandName: fuelStation.brandName,
+				postcode: fuelStation.postcode
+			})
+			.from(fuelStation)
+			.where(eq(fuelStation.nodeId, nodeId))
+			.limit(1)
+
+		return rows[0] ?? null
+	}
+}
+
+export type PriceHistoryRow = {
+	timestamp: string
+	pricePence: number
 }

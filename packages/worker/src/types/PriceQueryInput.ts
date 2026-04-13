@@ -11,7 +11,14 @@ export const PriceQueryInputSchema = z
 		availableFuelTypes: z.array(z.string().trim().min(1)).default([]),
 		highlightSampleSize: z.number().int().min(1).max(20).default(3),
 		station: PriceQueryStationFilterSchema.optional(),
-		includeClosed: z.boolean().default(false)
+		includeClosed: z.boolean().default(false),
+		at: z
+			.string()
+			.datetime()
+			.describe(
+				'Optional ISO-8601 timestamp. When provided, returns prices as they were at that point in time instead of the latest prices. Only up to 14 days of history is available.'
+			)
+			.optional()
 	})
 	.superRefine((value, ctx) => {
 		if (!value.area && !value.areas) {

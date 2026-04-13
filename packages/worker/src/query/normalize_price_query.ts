@@ -85,6 +85,7 @@ export function normalizePriceQuery(
 			Object.values(normalizedStation).some((value) => value !== undefined)
 				? normalizedStation
 				: null,
-		includeClosed: input.includeClosed
+		includeClosed: input.includeClosed,
+		at: input.at ?? null
 	}
 }

@@ -9,7 +9,8 @@ export const NormalizedPriceQuerySchema = z.object({
 	availableFuelTypes: z.array(z.string().min(1)),
 	highlightSampleSize: z.number().int().min(1).max(20),
 	station: PriceQueryStationFilterSchema.nullable(),
-	includeClosed: z.boolean()
+	includeClosed: z.boolean(),
+	at: z.string().datetime().nullable()
 })
 
 export type NormalizedPriceQuery = z.infer<typeof NormalizedPriceQuerySchema>

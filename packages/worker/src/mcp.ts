@@ -54,6 +54,8 @@ import { buildListPricesText, buildSummaryText } from './query/price_query_text'
 import { summarisePriceRows } from './query/price_summary'
 import { DataRegion } from './types/DataRegion'
 import { ListPricesOutputSchema } from './types/ListPricesOutput'
+import { PriceHistoryInputSchema } from './types/PriceHistoryInput'
+import { PriceHistoryOutputSchema } from './types/PriceHistoryOutput'
 import { PriceQueryInputSchema } from './types/PriceQueryInput'
 import { StationOpeningDay } from './types/StationOpeningDay'
 import { SummarisePricesOutputSchema } from './types/SummarisePricesOutput'
@@ -63,6 +65,7 @@ const PRICE_UPDATE_INTERVAL_MS = ms('1m')
 const PRICING_EVENT_RETENTION_MS = ms('14d')
 const LIST_RESULTS_LIMIT = 20
 const LIST_RESULTS_FETCH_LIMIT = LIST_RESULTS_LIMIT + 1
+const PRICE_HISTORY_LIMIT = 500
 
 type MaintenanceKind = 'backfill' | 'scheduled'
 
@@ -1027,7 +1030,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			{
 				title: 'List fuel prices',
 				description:
-					'Find actual stations and their current price for one fuel type. Returns up to 20 stations, sorted cheapest first, and clearly flags when more stations matched. If the list is truncated, use summarise_prices to work with larger matching sets.',
+					'Find actual stations and their price for one fuel type. Returns up to 20 stations, sorted cheapest first, and clearly flags when more stations matched. If the list is truncated, use summarise_prices to work with larger matching sets. Use the optional `at` parameter (ISO-8601 timestamp) to query prices as they were at a specific point in time (up to 14 days of history available).',
 				inputSchema: PriceQueryInputSchema,
 				outputSchema: ListPricesOutputSchema
 			},
@@ -1074,7 +1077,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			{
 				title: 'Summarise fuel prices',
 				description:
-					'Summarise the current prices for the same query model as list_prices. Returns min, max, mean, quartiles, and median, with real stations attached to the highlighted observed prices. Use highlightSampleSize to ask for a fuzzier set of nearby stations around each highlighted point.',
+					'Summarise prices for the same query model as list_prices. Returns min, max, mean, quartiles, and median, with real stations attached to the highlighted observed prices. Use highlightSampleSize to ask for a fuzzier set of nearby stations around each highlighted point. Use the optional `at` parameter (ISO-8601 timestamp) to summarise prices as they were at a specific point in time (up to 14 days of history available).',
 				inputSchema: PriceQueryInputSchema,
 				outputSchema: SummarisePricesOutputSchema
 			},
@@ -1094,6 +1097,99 @@ export class PetrolBabyObject extends McpAgent<Env> {
 							text: buildSummaryText(result)
 						}
 					],
+					structuredContent: result
+				}
+			}
+		)
+
+		server.registerTool(
+			'price_history',
+			{
+				title: 'Station price history',
+				description:
+					"Get the pricing history for a specific station and fuel type over time. Returns timestamped price events in reverse chronological order. Use this to see how a station's price has changed, or to compare historical trends. Up to 14 days of history is available. Obtain the station nodeId from a list_prices or summarise_prices result first.",
+				inputSchema: PriceHistoryInputSchema,
+				outputSchema: PriceHistoryOutputSchema
+			},
+			async (input) => {
+				await this.ensurePriceQueryDataReady()
+				const station = await this.priceQueryHelper.lookupStation(input.nodeId)
+				if (!station) {
+					return {
+						content: [
+							{
+								type: 'text',
+								text: `No station found with nodeId "${input.nodeId}".`
+							}
+						],
+						structuredContent: {
+							nodeId: input.nodeId,
+							tradingName: null,
+							brandName: null,
+							postcode: null,
+							fuelType: input.fuelType,
+							from:
+								input.from ??
+								new Date(Date.now() - PRICING_EVENT_RETENTION_MS).toISOString(),
+							to: input.to ?? new Date().toISOString(),
+							events: [],
+							eventCount: 0,
+							isTruncated: false
+						}
+					}
+				}
+
+				const fromDate = input.from
+					? new Date(input.from)
+					: new Date(Date.now() - PRICING_EVENT_RETENTION_MS)
+				const toDate = input.to ? new Date(input.to) : new Date()
+				const fetchLimit = PRICE_HISTORY_LIMIT + 1
+
+				const events = await this.priceQueryHelper.queryStationPriceHistory({
+					nodeId: input.nodeId,
+					fuelType: input.fuelType,
+					from: fromDate,
+					to: toDate,
+					limit: fetchLimit
+				})
+
+				const isTruncated = events.length > PRICE_HISTORY_LIMIT
+				const returnedEvents = events.slice(0, PRICE_HISTORY_LIMIT)
+				const stationLabel =
+					station.tradingName ?? station.brandName ?? station.nodeId
+				const postcodeLabel = station.postcode ? ` (${station.postcode})` : ''
+
+				const result: z.infer<typeof PriceHistoryOutputSchema> = {
+					nodeId: station.nodeId,
+					tradingName: station.tradingName,
+					brandName: station.brandName,
+					postcode: station.postcode,
+					fuelType: input.fuelType,
+					from: fromDate.toISOString(),
+					to: toDate.toISOString(),
+					events: returnedEvents,
+					eventCount: returnedEvents.length,
+					isTruncated
+				}
+
+				const lines: string[] = []
+				if (returnedEvents.length === 0) {
+					lines.push(
+						`No ${input.fuelType} price history found for ${stationLabel}${postcodeLabel} in the requested time range.`
+					)
+				} else {
+					lines.push(
+						`${returnedEvents.length} ${input.fuelType} price event${returnedEvents.length === 1 ? '' : 's'} for ${stationLabel}${postcodeLabel}.`
+					)
+					if (isTruncated) {
+						lines.push(
+							`Results truncated to ${PRICE_HISTORY_LIMIT} events. Narrow the time range for more detail.`
+						)
+					}
+				}
+
+				return {
+					content: [{ type: 'text', text: lines.join(' ') }],
 					structuredContent: result
 				}
 			}

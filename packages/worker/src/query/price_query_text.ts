@@ -12,18 +12,23 @@ function formatStationLabel(station: StationPriceResult): string {
 	return `${name}${postcode}`
 }
 
+function formatAtLabel(at: string | null): string {
+	return at ? ` as of ${at}` : ''
+}
+
 export function buildListPricesText(result: ListPricesOutput): string {
+	const atLabel = formatAtLabel(result.query.at)
 	if (result.items.length === 0) {
-		return `No current ${result.query.fuelType} prices matched this query.`
+		return `No ${result.query.fuelType} prices matched this query${atLabel}.`
 	}
 
 	const [cheapest] = result.items
 	if (!cheapest) {
-		return `No current ${result.query.fuelType} prices matched this query.`
+		return `No ${result.query.fuelType} prices matched this query${atLabel}.`
 	}
 
 	const lines = [
-		`Matched ${result.returnedCount} ${result.query.fuelType} station price${result.returnedCount === 1 ? '' : 's'}${result.isTruncated ? ' (truncated to 20 results)' : ''}.`,
+		`Matched ${result.returnedCount} ${result.query.fuelType} station price${result.returnedCount === 1 ? '' : 's'}${atLabel}${result.isTruncated ? ' (truncated to 20 results)' : ''}.`,
 		`Cheapest returned result is ${formatPricePence(cheapest.pricePence)} at ${formatStationLabel(cheapest)}.`
 	]
 	if (result.truncationMessage) {
@@ -36,12 +41,13 @@ export function buildListPricesText(result: ListPricesOutput): string {
 }
 
 export function buildSummaryText(result: SummarisePricesOutput): string {
+	const atLabel = formatAtLabel(result.query.at)
 	if (result.stationCount === 0 || !result.minimum || !result.maximum) {
-		return `No current ${result.query.fuelType} prices matched this query.`
+		return `No ${result.query.fuelType} prices matched this query${atLabel}.`
 	}
 
 	const lines = [
-		`Matched ${result.stationCount} station price${result.stationCount === 1 ? '' : 's'} for ${result.query.fuelType}.`,
+		`Matched ${result.stationCount} station price${result.stationCount === 1 ? '' : 's'} for ${result.query.fuelType}${atLabel}.`,
 		`Cheapest price is ${formatPricePence(result.minimum.pricePence)} at ${result.minimum.stations.length} station${result.minimum.stations.length === 1 ? '' : 's'}.`,
 		`Highest price is ${formatPricePence(result.maximum.pricePence)} at ${result.maximum.stations.length} station${result.maximum.stations.length === 1 ? '' : 's'}.`,
 		result.meanPricePence === null
