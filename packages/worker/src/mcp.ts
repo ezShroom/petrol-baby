@@ -165,8 +165,6 @@ export class PetrolBabyObject extends McpAgent<Env> {
 
 		ctx.blockConcurrencyWhile(async () => {
 			await migrate(this.db, migrations)
-			await this.pruneOldPricingEvents()
-			await this.oauth.initialize()
 		})
 	}
 
@@ -180,8 +178,8 @@ export class PetrolBabyObject extends McpAgent<Env> {
 
 	/**
 	 * Delete pricing events older than 14 days, unless the row is the latest
-	 * event for its (nodeId, typeCode) grouping.  Runs once at startup inside
-	 * `blockConcurrencyWhile` so it cannot race with reads or writes.
+	 * event for its (nodeId, typeCode) grouping.  Called at the start of every
+	 * scheduled maintenance run.
 	 */
 	private async pruneOldPricingEvents() {
 		const cutoff = new Date(Date.now() - PRICING_EVENT_RETENTION_MS)
@@ -259,6 +257,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 	}
 
 	private async runScheduledMaintenanceInternal() {
+		await this.pruneOldPricingEvents()
 		const { stations, prices } = await this.readMetadataRows()
 
 		if (!stations || !prices) {

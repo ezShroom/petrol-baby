@@ -26,13 +26,20 @@ export class FuelFinderOAuth {
 		expires: Date
 	}
 	private accessTokenRefreshPromise?: Promise<void>
+	private initializePromise?: Promise<void>
 
 	constructor(
 		private readonly db: DrizzleSqliteDODatabase<Record<string, unknown>>,
 		private readonly env: Env
 	) {}
 
-	async initialize(): Promise<void> {
+	/**
+	 * Load persisted OAuth tokens from the database and generate new ones if
+	 * no refresh token is stored.  Called lazily on the first token use rather
+	 * than eagerly in the constructor, so MCP connections and read-only queries
+	 * are not blocked by the token round-trip.
+	 */
+	private async initialize(): Promise<void> {
 		const retrievedKeys = await this.db.select().from(key)
 		const refreshKey = retrievedKeys.find(
 			(retrievedKey) => retrievedKey.type === KeyType.Refresh
@@ -54,7 +61,25 @@ export class FuelFinderOAuth {
 		}
 	}
 
+	/**
+	 * Ensure that {@link initialize} has been called exactly once.  Concurrent
+	 * callers share the same promise so the DB read + potential token generation
+	 * is never duplicated.  If initialization fails, the cached promise is
+	 * cleared so the next caller retries.
+	 */
+	private async ensureInitialized(): Promise<void> {
+		if (!this.initializePromise) {
+			this.initializePromise = this.initialize().catch((error) => {
+				this.initializePromise = undefined
+				throw error
+			})
+		}
+		await this.initializePromise
+	}
+
 	async ensureAccessToken(refreshWindowMs: number): Promise<void> {
+		await this.ensureInitialized()
+
 		if (!this.refreshToken) {
 			await this.generateAccessAndRefreshTokens()
 			return
@@ -68,6 +93,7 @@ export class FuelFinderOAuth {
 	}
 
 	async forceRefreshAccessToken(): Promise<void> {
+		await this.ensureInitialized()
 		await this.runAccessTokenRefresh({ force: true })
 	}
 
