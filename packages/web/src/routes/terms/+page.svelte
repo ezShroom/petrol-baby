@@ -58,6 +58,16 @@
 		made based on this data.
 	</p>
 
+	<h2 class="text-text-heading text-xl font-semibold">
+		Limitation of liability
+	</h2>
+	<p>
+		To the fullest extent permitted by applicable law, petrol.baby and its
+		operators shall not be liable for any direct, indirect, incidental,
+		consequential, or other damages arising out of or in connection with the use
+		of, or inability to use, this service or any data it provides.
+	</p>
+
 	<h2 class="text-text-heading text-xl font-semibold">Changes</h2>
 	<p>
 		These terms may be updated from time to time. Continued use of petrol.baby
