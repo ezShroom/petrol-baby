@@ -1,0 +1,38 @@
+packages/worker/src/mcp.ts
+  2432a2101fa87c13 5,8,10,21,63,168,181-223
+AGENTS.md
+  2432a2101fa87c13 9-10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "1e2fb71c5860e17b39ef647533e0fe3b5f89971e",
+  "prompts": {
+    "2432a2101fa87c13": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_2796c2e02ffeB91YX4NHO93kCh",
+        "model": "openrouter/openai/gpt-5.4"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 55,
+      "total_deletions": 5,
+      "accepted_lines": 51,
+      "overriden_lines": 0
+    },
+    "4826916b4f08d95a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_2794f6f17ffesPYUBHKP8CMQLZ",
+        "model": "openrouter/anthropic/claude-opus-4.6"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 0,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    }
+  }
+}
