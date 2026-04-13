@@ -1,0 +1,23 @@
+.github/workflows/check.yml
+  4826916b4f08d95a 78-80,103-105
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "52b80d632bfe839aafb992b82f2935ed3ab90149",
+  "prompts": {
+    "4826916b4f08d95a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_2794f6f17ffesPYUBHKP8CMQLZ",
+        "model": "openrouter/anthropic/claude-opus-4.6"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    }
+  }
+}
