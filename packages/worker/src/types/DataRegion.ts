@@ -1,4 +1,5 @@
 export enum DataRegion {
 	Stations,
-	Prices
+	Prices,
+	Prune
 }

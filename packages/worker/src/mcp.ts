@@ -51,7 +51,10 @@ import {
 import { FuelFinderOAuth } from './oauth'
 import { normalizePriceQuery } from './query/normalize_price_query'
 import { buildListPricesText, buildSummaryText } from './query/price_query_text'
-import { summarisePriceRows } from './query/price_summary'
+import {
+	collectSummaryStations,
+	summarisePriceRows
+} from './query/price_summary'
 import { DataRegion } from './types/DataRegion'
 import { ListPricesOutputSchema } from './types/ListPricesOutput'
 import { PriceHistoryInputSchema } from './types/PriceHistoryInput'
@@ -63,6 +66,7 @@ import { SummarisePricesOutputSchema } from './types/SummarisePricesOutput'
 const STATION_UPDATE_INTERVAL_MS = ms('15m')
 const PRICE_UPDATE_INTERVAL_MS = ms('1m')
 const PRICING_EVENT_RETENTION_MS = ms('14d')
+const PRUNE_INTERVAL_MS = ms('6h')
 const LIST_RESULTS_LIMIT = 20
 const LIST_RESULTS_FETCH_LIMIT = LIST_RESULTS_LIMIT + 1
 const PRICE_HISTORY_LIMIT = 500
@@ -150,6 +154,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 	private priceQueryHelper: PriceQueryHelper
 	private maintenancePromise: Promise<void> | null = null
 	private maintenanceKind: MaintenanceKind | null = null
+	private lastPrunedAt: number | null = null
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env)
@@ -175,7 +180,8 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		const metadata = await this.db.select().from(dataMetadata)
 		return {
 			stations: metadata.find((row) => row.region === DataRegion.Stations),
-			prices: metadata.find((row) => row.region === DataRegion.Prices)
+			prices: metadata.find((row) => row.region === DataRegion.Prices),
+			prune: metadata.find((row) => row.region === DataRegion.Prune)
 		}
 	}
 
@@ -222,6 +228,46 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		console.log('Pruned old pricing events (>14 days, non-latest).')
 	}
 
+	/**
+	 * Run {@link pruneOldPricingEvents} at most once per {@link PRUNE_INTERVAL_MS}.
+	 * The cursor is persisted in `data_metadata` (read for free alongside the
+	 * other metadata rows) so the interval survives Durable Object eviction,
+	 * restarts and deploys; `lastPrunedAt` is just an in-memory fast path.
+	 */
+	private async maybePruneOldPricingEvents(prune: MetadataRow | undefined) {
+		const now = Date.now()
+		const persistedAt = prune?.lastUpdatedAt.getTime() ?? null
+		const lastPrunedAt =
+			persistedAt !== null && this.lastPrunedAt !== null
+				? Math.max(persistedAt, this.lastPrunedAt)
+				: (persistedAt ?? this.lastPrunedAt)
+
+		if (lastPrunedAt !== null && now - lastPrunedAt < PRUNE_INTERVAL_MS) {
+			return
+		}
+
+		await this.pruneOldPricingEvents()
+		const prunedAt = new Date()
+		this.lastPrunedAt = prunedAt.getTime()
+		await this.markPruneComplete(prunedAt)
+	}
+
+	private async markPruneComplete(prunedAt: Date) {
+		await this.db
+			.insert(dataMetadata)
+			.values({
+				region: DataRegion.Prune,
+				backfilledAt: prunedAt,
+				lastUpdatedAt: prunedAt
+			})
+			.onConflictDoUpdate({
+				target: dataMetadata.region,
+				set: {
+					lastUpdatedAt: prunedAt
+				}
+			})
+	}
+
 	private startMaintenance(
 		kind: MaintenanceKind,
 		runner: () => Promise<void>
@@ -260,8 +306,9 @@ export class PetrolBabyObject extends McpAgent<Env> {
 	}
 
 	private async runScheduledMaintenanceInternal() {
-		await this.pruneOldPricingEvents()
-		const { stations, prices } = await this.readMetadataRows()
+		const { stations, prices, prune } = await this.readMetadataRows()
+
+		await this.maybePruneOldPricingEvents(prune)
 
 		if (!stations || !prices) {
 			console.log(
@@ -1086,9 +1133,13 @@ export class PetrolBabyObject extends McpAgent<Env> {
 				const query = normalizePriceQuery(input)
 				const baseRows =
 					await this.priceQueryHelper.queryCurrentPriceRows(query)
-				const hydratedRows =
-					await this.priceQueryHelper.hydrateStationPriceRows(query, baseRows)
-				const result = summarisePriceRows(query, hydratedRows)
+				const rows = this.priceQueryHelper.buildUnhydratedRows(query, baseRows)
+				const result = summarisePriceRows(query, rows)
+				// Only the stations surfaced on the highlighted price points need
+				// their relations; hydrate just those rather than every match.
+				await this.priceQueryHelper.hydrateStationsInPlace(
+					collectSummaryStations(result)
+				)
 
 				return {
 					content: [

@@ -243,3 +243,44 @@ export function summarisePriceRows(
 		]
 	}
 }
+
+function collectPointStations(
+	point: ObservedPricePoint | null | undefined,
+	out: StationPriceResult[]
+): void {
+	if (!point) {
+		return
+	}
+	out.push(...point.stations, ...point.nearbyStations)
+}
+
+/**
+ * Gather every station object referenced by a summary output (the stations
+ * attached to the min/max/quartile/median highlighted points and their
+ * nearby windows).  These are the only stations that need their amenity /
+ * available-fuel-type relations hydrated, so callers can hydrate just this
+ * bounded set instead of every matching station.
+ *
+ * The returned objects are the same references stored in the summary, so
+ * mutating them (e.g. via PriceQueryHelper.hydrateStationsInPlace) updates
+ * the summary in place.
+ */
+export function collectSummaryStations(
+	result: SummarisePricesOutput
+): StationPriceResult[] {
+	const out: StationPriceResult[] = []
+	collectPointStations(result.minimum, out)
+	collectPointStations(result.maximum, out)
+	collectPointStations(result.lowerQuartile, out)
+	collectPointStations(result.upperQuartile, out)
+
+	const median = result.median
+	if (median.kind === 'single') {
+		out.push(...median.stations, ...median.nearbyStations)
+	} else if (median.kind === 'pair') {
+		collectPointStations(median.lower, out)
+		collectPointStations(median.upper, out)
+	}
+
+	return out
+}

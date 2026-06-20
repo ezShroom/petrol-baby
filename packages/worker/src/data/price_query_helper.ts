@@ -98,20 +98,11 @@ export class PriceQueryHelper {
 		limit?: number
 	): Promise<StationPriceSqlRow[]> {
 		const atCutoff = query.at ? new Date(query.at) : null
-		const latestConditions: SQL[] = [eq(pricingEvent.typeCode, query.fuelType)]
-		if (atCutoff) {
-			latestConditions.push(lte(pricingEvent.timestamp, atCutoff))
-		}
-		const latestPerStation = this.db
-			.select({
-				nodeId: pricingEvent.nodeId,
-				latestTimestamp: max(pricingEvent.timestamp).as('latestTimestamp')
-			})
-			.from(pricingEvent)
-			.where(and(...latestConditions))
-			.groupBy(pricingEvent.nodeId)
-			.as('latest_per_station')
 
+		// Station-level filters (area, closure, identity, amenities, available
+		// fuel types).  These are pushed into the latest-price subquery below so
+		// that the latest price is only computed for stations that actually
+		// match, rather than for every station carrying the fuel type.
 		const conditions: SQL[] = []
 		const areaCondition = this.buildAreaCondition(query)
 		if (areaCondition) conditions.push(areaCondition)
@@ -161,6 +152,21 @@ export class PriceQueryHelper {
 			)
 		}
 
+		const latestConditions: SQL[] = [eq(pricingEvent.typeCode, query.fuelType)]
+		if (atCutoff) {
+			latestConditions.push(lte(pricingEvent.timestamp, atCutoff))
+		}
+		const latestPerStation = this.db
+			.select({
+				nodeId: pricingEvent.nodeId,
+				latestTimestamp: max(pricingEvent.timestamp).as('latestTimestamp')
+			})
+			.from(pricingEvent)
+			.innerJoin(fuelStation, eq(fuelStation.nodeId, pricingEvent.nodeId))
+			.where(and(...latestConditions, ...conditions))
+			.groupBy(pricingEvent.nodeId)
+			.as('latest_per_station')
+
 		let statement = this.db
 			.select({
 				nodeId: fuelStation.nodeId,
@@ -174,16 +180,16 @@ export class PriceQueryHelper {
 				pricePence: pricingEvent.pricePence,
 				priceTimestamp: pricingEvent.timestamp
 			})
-			.from(pricingEvent)
+			.from(latestPerStation)
 			.innerJoin(
-				latestPerStation,
+				pricingEvent,
 				and(
 					eq(pricingEvent.nodeId, latestPerStation.nodeId),
+					eq(pricingEvent.typeCode, query.fuelType),
 					eq(pricingEvent.timestamp, latestPerStation.latestTimestamp)
 				)
 			)
-			.innerJoin(fuelStation, eq(fuelStation.nodeId, pricingEvent.nodeId))
-			.where(and(eq(pricingEvent.typeCode, query.fuelType), ...conditions))
+			.innerJoin(fuelStation, eq(fuelStation.nodeId, latestPerStation.nodeId))
 			.orderBy(
 				asc(pricingEvent.pricePence),
 				asc(fuelStation.tradingName),
@@ -246,16 +252,23 @@ export class PriceQueryHelper {
 		query: NormalizedPriceQuery,
 		rows: StationPriceSqlRow[]
 	): Promise<StationPriceResult[]> {
-		if (rows.length === 0) {
-			return []
-		}
+		const results = this.buildUnhydratedRows(query, rows)
+		await this.hydrateStationsInPlace(results)
+		return results
+	}
 
-		const nodeIds = [...new Set(rows.map((row) => row.nodeId))]
-		const [amenitiesByNodeId, fuelTypesByNodeId] = await Promise.all([
-			this.loadRelationValues(nodeIds, 'amenity'),
-			this.loadRelationValues(nodeIds, 'fuel_type')
-		])
-
+	/**
+	 * Map raw SQL rows into result objects without loading their amenity /
+	 * available-fuel-type relations.  Callers that only need a subset of the
+	 * stations hydrated (e.g. summarise_prices, which only surfaces the
+	 * stations attached to highlighted price points) can build the full
+	 * ordered set cheaply here and then hydrate just the rows that end up in
+	 * the output via {@link hydrateStationsInPlace}.
+	 */
+	buildUnhydratedRows(
+		query: NormalizedPriceQuery,
+		rows: StationPriceSqlRow[]
+	): StationPriceResult[] {
 		return rows.map((row) => ({
 			nodeId: row.nodeId,
 			tradingName: row.tradingName,
@@ -268,9 +281,32 @@ export class PriceQueryHelper {
 			pricePence: row.pricePence,
 			fuelType: query.fuelType,
 			priceTimestamp: toIsoTimestamp(row.priceTimestamp),
-			amenities: amenitiesByNodeId.get(row.nodeId) ?? [],
-			availableFuelTypes: fuelTypesByNodeId.get(row.nodeId) ?? []
+			amenities: [],
+			availableFuelTypes: []
 		}))
+	}
+
+	/**
+	 * Load amenity / available-fuel-type relations for the given result rows
+	 * and mutate them in place.  Only the unique nodeIds of the supplied rows
+	 * are read, so passing just the stations that appear in a response avoids
+	 * scanning relation rows for stations that are never surfaced.
+	 */
+	async hydrateStationsInPlace(stations: StationPriceResult[]): Promise<void> {
+		if (stations.length === 0) {
+			return
+		}
+
+		const nodeIds = [...new Set(stations.map((station) => station.nodeId))]
+		const [amenitiesByNodeId, fuelTypesByNodeId] = await Promise.all([
+			this.loadRelationValues(nodeIds, 'amenity'),
+			this.loadRelationValues(nodeIds, 'fuel_type')
+		])
+
+		for (const station of stations) {
+			station.amenities = amenitiesByNodeId.get(station.nodeId) ?? []
+			station.availableFuelTypes = fuelTypesByNodeId.get(station.nodeId) ?? []
+		}
 	}
 
 	async queryStationPriceHistory(options: {
