@@ -1,6 +1,7 @@
 import type { DataRegion } from '@/types/DataRegion'
 import { StationOpeningDay } from '@/types/StationOpeningDay'
 import {
+	index,
 	integer,
 	primaryKey,
 	real,
@@ -14,25 +15,34 @@ export const key = sqliteTable('key', {
 	key: text().notNull(),
 	expires: integer({ mode: 'timestamp' })
 })
-export const fuelStation = sqliteTable('fuel_station', {
-	nodeId: text().primaryKey(),
-	phone: text(),
-	tradingName: text(),
-	brandName: text(),
-	temporarilyClosed: integer({ mode: 'boolean' }),
-	isMotorwayService: integer({ mode: 'boolean' }),
-	isSupermarketService: integer({ mode: 'boolean' }),
-	address1: text(),
-	address2: text(),
-	city: text(),
-	country: text(),
-	postcode: text(),
-	latitude: real(),
-	longitude: real(),
-	permanentClosureDate: text(),
-	coordinatesValid: integer({ mode: 'boolean' }),
-	sourceHash: text()
-})
+export const fuelStation = sqliteTable(
+	'fuel_station',
+	{
+		nodeId: text().primaryKey(),
+		phone: text(),
+		tradingName: text(),
+		brandName: text(),
+		temporarilyClosed: integer({ mode: 'boolean' }),
+		isMotorwayService: integer({ mode: 'boolean' }),
+		isSupermarketService: integer({ mode: 'boolean' }),
+		address1: text(),
+		address2: text(),
+		city: text(),
+		country: text(),
+		postcode: text(),
+		latitude: real(),
+		longitude: real(),
+		permanentClosureDate: text(),
+		coordinatesValid: integer({ mode: 'boolean' }),
+		sourceHash: text()
+	},
+	(table) => [
+		index('fuel_station_postcode_idx').on(table.postcode),
+		index('fuel_station_country_idx').on(table.country),
+		index('fuel_station_city_idx').on(table.city),
+		index('fuel_station_brand_name_idx').on(table.brandName)
+	]
+)
 export const knownType = sqliteTable('known_type', {
 	typeCode: text().primaryKey()
 })
@@ -65,7 +75,11 @@ export const pricingEvent = sqliteTable(
 		pricePence: real().notNull()
 	},
 	(table) => [
-		primaryKey({ columns: [table.nodeId, table.typeCode, table.timestamp] })
+		primaryKey({ columns: [table.nodeId, table.typeCode, table.timestamp] }),
+		index('pricing_event_type_code_timestamp_idx').on(
+			table.typeCode,
+			table.timestamp
+		)
 	]
 )
 export const knownAmenity = sqliteTable('known_amenity', {

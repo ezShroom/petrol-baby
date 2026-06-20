@@ -51,7 +51,10 @@ import {
 import { FuelFinderOAuth } from './oauth'
 import { normalizePriceQuery } from './query/normalize_price_query'
 import { buildListPricesText, buildSummaryText } from './query/price_query_text'
-import { summarisePriceRows } from './query/price_summary'
+import {
+	collectSummaryStations,
+	summarisePriceRows
+} from './query/price_summary'
 import { DataRegion } from './types/DataRegion'
 import { ListPricesOutputSchema } from './types/ListPricesOutput'
 import { PriceHistoryInputSchema } from './types/PriceHistoryInput'
@@ -63,6 +66,7 @@ import { SummarisePricesOutputSchema } from './types/SummarisePricesOutput'
 const STATION_UPDATE_INTERVAL_MS = ms('15m')
 const PRICE_UPDATE_INTERVAL_MS = ms('1m')
 const PRICING_EVENT_RETENTION_MS = ms('14d')
+const PRUNE_INTERVAL_MS = ms('6h')
 const LIST_RESULTS_LIMIT = 20
 const LIST_RESULTS_FETCH_LIMIT = LIST_RESULTS_LIMIT + 1
 const PRICE_HISTORY_LIMIT = 500
@@ -150,6 +154,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 	private priceQueryHelper: PriceQueryHelper
 	private maintenancePromise: Promise<void> | null = null
 	private maintenanceKind: MaintenanceKind | null = null
+	private lastPrunedAt: number | null = null
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env)
@@ -260,7 +265,13 @@ export class PetrolBabyObject extends McpAgent<Env> {
 	}
 
 	private async runScheduledMaintenanceInternal() {
-		await this.pruneOldPricingEvents()
+		if (
+			this.lastPrunedAt === null ||
+			Date.now() - this.lastPrunedAt >= PRUNE_INTERVAL_MS
+		) {
+			await this.pruneOldPricingEvents()
+			this.lastPrunedAt = Date.now()
+		}
 		const { stations, prices } = await this.readMetadataRows()
 
 		if (!stations || !prices) {
@@ -1086,9 +1097,13 @@ export class PetrolBabyObject extends McpAgent<Env> {
 				const query = normalizePriceQuery(input)
 				const baseRows =
 					await this.priceQueryHelper.queryCurrentPriceRows(query)
-				const hydratedRows =
-					await this.priceQueryHelper.hydrateStationPriceRows(query, baseRows)
-				const result = summarisePriceRows(query, hydratedRows)
+				const rows = this.priceQueryHelper.buildUnhydratedRows(query, baseRows)
+				const result = summarisePriceRows(query, rows)
+				// Only the stations surfaced on the highlighted price points need
+				// their relations; hydrate just those rather than every match.
+				await this.priceQueryHelper.hydrateStationsInPlace(
+					collectSummaryStations(result)
+				)
 
 				return {
 					content: [

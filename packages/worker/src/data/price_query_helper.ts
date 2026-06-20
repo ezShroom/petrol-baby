@@ -246,16 +246,23 @@ export class PriceQueryHelper {
 		query: NormalizedPriceQuery,
 		rows: StationPriceSqlRow[]
 	): Promise<StationPriceResult[]> {
-		if (rows.length === 0) {
-			return []
-		}
+		const results = this.buildUnhydratedRows(query, rows)
+		await this.hydrateStationsInPlace(results)
+		return results
+	}
 
-		const nodeIds = [...new Set(rows.map((row) => row.nodeId))]
-		const [amenitiesByNodeId, fuelTypesByNodeId] = await Promise.all([
-			this.loadRelationValues(nodeIds, 'amenity'),
-			this.loadRelationValues(nodeIds, 'fuel_type')
-		])
-
+	/**
+	 * Map raw SQL rows into result objects without loading their amenity /
+	 * available-fuel-type relations.  Callers that only need a subset of the
+	 * stations hydrated (e.g. summarise_prices, which only surfaces the
+	 * stations attached to highlighted price points) can build the full
+	 * ordered set cheaply here and then hydrate just the rows that end up in
+	 * the output via {@link hydrateStationsInPlace}.
+	 */
+	buildUnhydratedRows(
+		query: NormalizedPriceQuery,
+		rows: StationPriceSqlRow[]
+	): StationPriceResult[] {
 		return rows.map((row) => ({
 			nodeId: row.nodeId,
 			tradingName: row.tradingName,
@@ -268,9 +275,32 @@ export class PriceQueryHelper {
 			pricePence: row.pricePence,
 			fuelType: query.fuelType,
 			priceTimestamp: toIsoTimestamp(row.priceTimestamp),
-			amenities: amenitiesByNodeId.get(row.nodeId) ?? [],
-			availableFuelTypes: fuelTypesByNodeId.get(row.nodeId) ?? []
+			amenities: [],
+			availableFuelTypes: []
 		}))
+	}
+
+	/**
+	 * Load amenity / available-fuel-type relations for the given result rows
+	 * and mutate them in place.  Only the unique nodeIds of the supplied rows
+	 * are read, so passing just the stations that appear in a response avoids
+	 * scanning relation rows for stations that are never surfaced.
+	 */
+	async hydrateStationsInPlace(stations: StationPriceResult[]): Promise<void> {
+		if (stations.length === 0) {
+			return
+		}
+
+		const nodeIds = [...new Set(stations.map((station) => station.nodeId))]
+		const [amenitiesByNodeId, fuelTypesByNodeId] = await Promise.all([
+			this.loadRelationValues(nodeIds, 'amenity'),
+			this.loadRelationValues(nodeIds, 'fuel_type')
+		])
+
+		for (const station of stations) {
+			station.amenities = amenitiesByNodeId.get(station.nodeId) ?? []
+			station.availableFuelTypes = fuelTypesByNodeId.get(station.nodeId) ?? []
+		}
 	}
 
 	async queryStationPriceHistory(options: {
