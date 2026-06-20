@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "91123106-d71e-44e7-83bb-29140513f89f",
+  "id": "3556cba4-6721-4124-bcdd-38d1d947ceb1",
   "prevId": "2c20f09f-ceaa-48a1-8d05-9dba9a5ec5b9",
   "tables": {
     "available_fuel_type": {
@@ -409,10 +409,11 @@
         }
       },
       "indexes": {
-        "pricing_event_type_code_timestamp_idx": {
-          "name": "pricing_event_type_code_timestamp_idx",
+        "pricing_event_type_code_node_id_timestamp_idx": {
+          "name": "pricing_event_type_code_node_id_timestamp_idx",
           "columns": [
             "typeCode",
+            "nodeId",
             "timestamp"
           ],
           "isUnique": false

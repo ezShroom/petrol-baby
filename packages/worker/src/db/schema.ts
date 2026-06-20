@@ -76,8 +76,9 @@ export const pricingEvent = sqliteTable(
 	},
 	(table) => [
 		primaryKey({ columns: [table.nodeId, table.typeCode, table.timestamp] }),
-		index('pricing_event_type_code_timestamp_idx').on(
+		index('pricing_event_type_code_node_id_timestamp_idx').on(
 			table.typeCode,
+			table.nodeId,
 			table.timestamp
 		)
 	]

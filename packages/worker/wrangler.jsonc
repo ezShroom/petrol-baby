@@ -13,9 +13,13 @@
 		},
 		"traces": {}
 	},
-	"limits": {
-		"subrequests": 10000
-	},
+	// The Cloudflare API rejects any `limits` block on the Free plan (error
+	// 100328), and subrequests cannot be raised above the Free-plan cap there
+	// anyway. Restore this (e.g. `{ "subrequests": 1000 }`, within the plan
+	// maximum) once on a paid plan.
+	// "limits": {
+	// 	"subrequests": 10000
+	// },
 	"triggers": {
 		"crons": ["* * * * *"]
 	},

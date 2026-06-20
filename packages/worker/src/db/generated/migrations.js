@@ -10,7 +10,7 @@ import m0007 from './0007_strong_skullbuster.sql';
 import m0008 from './0008_orange_the_watchers.sql';
 import m0009 from './0009_stormy_chimera.sql';
 import m0010 from './0010_busy_gressill.sql';
-import m0011 from './0011_clever_flatman.sql';
+import m0011 from './0011_shallow_bromley.sql';
 
   export default {
     journal,

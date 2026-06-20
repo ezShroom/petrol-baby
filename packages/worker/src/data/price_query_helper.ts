@@ -98,20 +98,11 @@ export class PriceQueryHelper {
 		limit?: number
 	): Promise<StationPriceSqlRow[]> {
 		const atCutoff = query.at ? new Date(query.at) : null
-		const latestConditions: SQL[] = [eq(pricingEvent.typeCode, query.fuelType)]
-		if (atCutoff) {
-			latestConditions.push(lte(pricingEvent.timestamp, atCutoff))
-		}
-		const latestPerStation = this.db
-			.select({
-				nodeId: pricingEvent.nodeId,
-				latestTimestamp: max(pricingEvent.timestamp).as('latestTimestamp')
-			})
-			.from(pricingEvent)
-			.where(and(...latestConditions))
-			.groupBy(pricingEvent.nodeId)
-			.as('latest_per_station')
 
+		// Station-level filters (area, closure, identity, amenities, available
+		// fuel types).  These are pushed into the latest-price subquery below so
+		// that the latest price is only computed for stations that actually
+		// match, rather than for every station carrying the fuel type.
 		const conditions: SQL[] = []
 		const areaCondition = this.buildAreaCondition(query)
 		if (areaCondition) conditions.push(areaCondition)
@@ -161,6 +152,21 @@ export class PriceQueryHelper {
 			)
 		}
 
+		const latestConditions: SQL[] = [eq(pricingEvent.typeCode, query.fuelType)]
+		if (atCutoff) {
+			latestConditions.push(lte(pricingEvent.timestamp, atCutoff))
+		}
+		const latestPerStation = this.db
+			.select({
+				nodeId: pricingEvent.nodeId,
+				latestTimestamp: max(pricingEvent.timestamp).as('latestTimestamp')
+			})
+			.from(pricingEvent)
+			.innerJoin(fuelStation, eq(fuelStation.nodeId, pricingEvent.nodeId))
+			.where(and(...latestConditions, ...conditions))
+			.groupBy(pricingEvent.nodeId)
+			.as('latest_per_station')
+
 		let statement = this.db
 			.select({
 				nodeId: fuelStation.nodeId,
@@ -174,16 +180,16 @@ export class PriceQueryHelper {
 				pricePence: pricingEvent.pricePence,
 				priceTimestamp: pricingEvent.timestamp
 			})
-			.from(pricingEvent)
+			.from(latestPerStation)
 			.innerJoin(
-				latestPerStation,
+				pricingEvent,
 				and(
 					eq(pricingEvent.nodeId, latestPerStation.nodeId),
+					eq(pricingEvent.typeCode, query.fuelType),
 					eq(pricingEvent.timestamp, latestPerStation.latestTimestamp)
 				)
 			)
-			.innerJoin(fuelStation, eq(fuelStation.nodeId, pricingEvent.nodeId))
-			.where(and(eq(pricingEvent.typeCode, query.fuelType), ...conditions))
+			.innerJoin(fuelStation, eq(fuelStation.nodeId, latestPerStation.nodeId))
 			.orderBy(
 				asc(pricingEvent.pricePence),
 				asc(fuelStation.tradingName),

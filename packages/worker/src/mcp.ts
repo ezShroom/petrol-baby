@@ -180,7 +180,8 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		const metadata = await this.db.select().from(dataMetadata)
 		return {
 			stations: metadata.find((row) => row.region === DataRegion.Stations),
-			prices: metadata.find((row) => row.region === DataRegion.Prices)
+			prices: metadata.find((row) => row.region === DataRegion.Prices),
+			prune: metadata.find((row) => row.region === DataRegion.Prune)
 		}
 	}
 
@@ -227,6 +228,46 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		console.log('Pruned old pricing events (>14 days, non-latest).')
 	}
 
+	/**
+	 * Run {@link pruneOldPricingEvents} at most once per {@link PRUNE_INTERVAL_MS}.
+	 * The cursor is persisted in `data_metadata` (read for free alongside the
+	 * other metadata rows) so the interval survives Durable Object eviction,
+	 * restarts and deploys; `lastPrunedAt` is just an in-memory fast path.
+	 */
+	private async maybePruneOldPricingEvents(prune: MetadataRow | undefined) {
+		const now = Date.now()
+		const persistedAt = prune?.lastUpdatedAt.getTime() ?? null
+		const lastPrunedAt =
+			persistedAt !== null && this.lastPrunedAt !== null
+				? Math.max(persistedAt, this.lastPrunedAt)
+				: (persistedAt ?? this.lastPrunedAt)
+
+		if (lastPrunedAt !== null && now - lastPrunedAt < PRUNE_INTERVAL_MS) {
+			return
+		}
+
+		await this.pruneOldPricingEvents()
+		const prunedAt = new Date()
+		this.lastPrunedAt = prunedAt.getTime()
+		await this.markPruneComplete(prunedAt)
+	}
+
+	private async markPruneComplete(prunedAt: Date) {
+		await this.db
+			.insert(dataMetadata)
+			.values({
+				region: DataRegion.Prune,
+				backfilledAt: prunedAt,
+				lastUpdatedAt: prunedAt
+			})
+			.onConflictDoUpdate({
+				target: dataMetadata.region,
+				set: {
+					lastUpdatedAt: prunedAt
+				}
+			})
+	}
+
 	private startMaintenance(
 		kind: MaintenanceKind,
 		runner: () => Promise<void>
@@ -265,14 +306,9 @@ export class PetrolBabyObject extends McpAgent<Env> {
 	}
 
 	private async runScheduledMaintenanceInternal() {
-		if (
-			this.lastPrunedAt === null ||
-			Date.now() - this.lastPrunedAt >= PRUNE_INTERVAL_MS
-		) {
-			await this.pruneOldPricingEvents()
-			this.lastPrunedAt = Date.now()
-		}
-		const { stations, prices } = await this.readMetadataRows()
+		const { stations, prices, prune } = await this.readMetadataRows()
+
+		await this.maybePruneOldPricingEvents(prune)
 
 		if (!stations || !prices) {
 			console.log(
