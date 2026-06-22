@@ -1,13 +1,18 @@
 import type { Handle } from '@sveltejs/kit'
 
 export const handle: Handle = async ({ event, resolve }) => {
-	if (event.url.pathname === '/mcp') {
+	if (event.url.pathname === '/mcp' || event.url.pathname === '/live') {
 		const backend = event.platform?.env?.MCP_BACKEND
 		if (!backend) {
 			return new Response('MCP backend unavailable', { status: 503 })
 		}
 		try {
 			const res = await backend.fetch(event.request.url, event.request)
+			// Websocket upgrades (/live, and MCP over WS) return a 101 with a
+			// `webSocket` handle that must be passed through untouched.
+			if (res.status === 101) {
+				return res
+			}
 			return new Response(res.body, {
 				status: res.status,
 				statusText: res.statusText,

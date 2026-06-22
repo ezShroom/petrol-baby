@@ -1,0 +1,1 @@
+ALTER TABLE `known_amenity` ADD `displayName` text;
