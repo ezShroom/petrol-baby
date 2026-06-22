@@ -13,9 +13,7 @@
 	const recipeUrl = 'https://poke.com/r/UcGmvmDWcAB'
 
 	const heading = $derived(
-		stationName
-			? `Track ${stationName} with Poke`
-			: 'Let Poke do the legwork'
+		stationName ? `Track ${stationName} with Poke` : 'Let Poke do the legwork'
 	)
 </script>
 

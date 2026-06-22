@@ -1,8 +1,8 @@
 <script lang="ts">
+	import type { CompareData, FuelPrice } from '@petrol-baby/worker'
 	import { resolve } from '$app/paths'
 	import PriceChart from '$lib/components/PriceChart.svelte'
 	import { formatDistance, formatPenceUnit } from '$lib/format'
-	import type { CompareData, FuelPrice } from '@petrol-baby/worker'
 
 	interface Props {
 		nodeId: string
@@ -74,9 +74,7 @@
 	}
 
 	const comparisonRows = $derived(
-		activeTab === 'nearby'
-			? (compare?.nearby ?? [])
-			: (compare?.cheapest ?? [])
+		activeTab === 'nearby' ? (compare?.nearby ?? []) : (compare?.cheapest ?? [])
 	)
 </script>
 
@@ -114,7 +112,7 @@
 			class="cursor-pointer border-b-2 px-4 py-2 text-sm font-medium transition-colors {activeTab ===
 			'nearby'
 				? 'border-accent text-text-heading'
-				: 'border-transparent text-text-muted hover:text-text-body'}"
+				: 'text-text-muted hover:text-text-body border-transparent'}"
 		>
 			Nearby
 		</button>
@@ -123,7 +121,7 @@
 			class="cursor-pointer border-b-2 px-4 py-2 text-sm font-medium transition-colors {activeTab ===
 			'cheapest'
 				? 'border-accent text-text-heading'
-				: 'border-transparent text-text-muted hover:text-text-body'}"
+				: 'text-text-muted hover:text-text-body border-transparent'}"
 		>
 			Cheapest nearby
 		</button>
@@ -154,12 +152,18 @@
 					</span>
 					<span
 						class="shrink-0 font-mono text-sm font-semibold tabular-nums"
-						title={row.prices.map((p) => `${p.label}: ${formatPenceUnit(p.pricePence)}`).join(' · ')}
+						title={row.prices
+							.map((p) => `${p.label}: ${formatPenceUnit(p.pricePence)}`)
+							.join(' · ')}
 					>
 						{#each row.prices as price, idx (price.code)}
 							{#if idx > 0}<span class="text-text-muted mx-0.5 font-normal"
 									>/</span
-								>							{/if}<span style:color={idx === 0 ? 'var(--color-accent)' : 'var(--color-diesel)'}
+								>
+							{/if}<span
+								style:color={idx === 0
+									? 'var(--color-accent)'
+									: 'var(--color-diesel)'}
 								>{formatPenceUnit(price.pricePence)}</span
 							>
 						{/each}

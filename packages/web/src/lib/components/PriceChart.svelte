@@ -58,7 +58,9 @@
 
 		const coords = valid.map((p) => ({ x: x(p.t), y: y(p.v), v: p.v, t: p.t }))
 		const line = coords
-			.map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x.toFixed(1)},${c.y.toFixed(1)}`)
+			.map(
+				(c, i) => `${i === 0 ? 'M' : 'L'}${c.x.toFixed(1)},${c.y.toFixed(1)}`
+			)
 			.join(' ')
 		const area =
 			`M${coords[0].x.toFixed(1)},${(HEIGHT - PAD.bottom).toFixed(1)} ` +
@@ -110,7 +112,9 @@
 	)
 	// Tooltip x clamped so it stays inside the plot.
 	const tipX = $derived(
-		active ? Math.min(Math.max(active.x, PAD.left + 60), WIDTH - PAD.right - 60) : 0
+		active
+			? Math.min(Math.max(active.x, PAD.left + 60), WIDTH - PAD.right - 60)
+			: 0
 	)
 
 	function onMove(event: PointerEvent) {
@@ -144,8 +148,16 @@
 		>
 			<defs>
 				<linearGradient id="price-area" x1="0" y1="0" x2="0" y2="1">
-					<stop offset="0%" stop-color="var(--color-accent)" stop-opacity="0.28" />
-					<stop offset="100%" stop-color="var(--color-accent)" stop-opacity="0" />
+					<stop
+						offset="0%"
+						stop-color="var(--color-accent)"
+						stop-opacity="0.28"
+					/>
+					<stop
+						offset="100%"
+						stop-color="var(--color-accent)"
+						stop-opacity="0"
+					/>
 				</linearGradient>
 			</defs>
 
@@ -185,8 +197,18 @@
 			{/if}
 
 			<!-- low / high markers with value labels -->
-			<circle cx={plot.lo.x} cy={plot.lo.y} r="3.5" fill="var(--color-accent)" />
-			<circle cx={plot.hi.x} cy={plot.hi.y} r="3.5" fill="var(--color-text-muted)" />
+			<circle
+				cx={plot.lo.x}
+				cy={plot.lo.y}
+				r="3.5"
+				fill="var(--color-accent)"
+			/>
+			<circle
+				cx={plot.hi.x}
+				cy={plot.hi.y}
+				r="3.5"
+				fill="var(--color-text-muted)"
+			/>
 
 			<!-- current point + persistent price label -->
 			<circle

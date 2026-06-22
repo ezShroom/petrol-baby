@@ -93,9 +93,9 @@ export class PetrolBabyWorker extends WorkerEntrypoint<Env> {
 	// disposed properly".
 
 	async getStationPage(slug: string): Promise<string> {
-		const result = await getDataStub(this.env.PETROL_BABY_OBJECT).getStationPage(
-			slug
-		)
+		const result = await getDataStub(
+			this.env.PETROL_BABY_OBJECT
+		).getStationPage(slug)
 		try {
 			return JSON.stringify(result)
 		} finally {

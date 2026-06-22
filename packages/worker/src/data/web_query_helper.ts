@@ -29,20 +29,20 @@ import type {
 	CompareData,
 	ComparisonStation,
 	PriceHistoryPoint,
+	SitemapResult,
+	SlugResolution,
 	StationIdentity,
 	StationListResult,
 	StationOpeningTime,
-	StationPagePayload,
-	SitemapResult,
-	SlugResolution
+	StationPagePayload
 } from '../types/StationPagePayload'
+import { prettifyAmenityCode } from './amenity_namer'
 import {
 	decorateFuels,
 	fuelLabel,
 	selectDefaultFuel,
 	selectHeadlineFuels
 } from './fuel_naming'
-import { prettifyAmenityCode } from './amenity_namer'
 import { extractSlugToken } from './slug'
 
 const NEARBY_LIMIT = 5
@@ -200,9 +200,7 @@ export class WebQueryHelper {
 		return rows.map((row) => row.displayName ?? prettifyAmenityCode(row.code))
 	}
 
-	private async openingTimesFor(
-		nodeId: string
-	): Promise<StationOpeningTime[]> {
+	private async openingTimesFor(nodeId: string): Promise<StationOpeningTime[]> {
 		const rows = await this.db
 			.select({
 				day: stationOpeningTime.day,
@@ -221,7 +219,9 @@ export class WebQueryHelper {
 	 * fuel types the station is known to offer (so fuels with no recent price
 	 * still appear, with a null price).
 	 */
-	private async currentPricesFor(nodeId: string): Promise<
+	private async currentPricesFor(
+		nodeId: string
+	): Promise<
 		{ code: string; pricePence: number | null; timestamp: string | null }[]
 	> {
 		const latestPerType = this.db
@@ -354,8 +354,7 @@ export class WebQueryHelper {
 		anchor: FuelStationRow,
 		fuelType: string
 	): Promise<RawComparisonRow[]> {
-		const hasCoords =
-			anchor.latitude !== null && anchor.longitude !== null
+		const hasCoords = anchor.latitude !== null && anchor.longitude !== null
 		// Prefer a geographic radius (same neighbourhood as "nearby") so small
 		// towns still surface several real options; only fall back to exact-city
 		// matching when the station has no coordinates at all.
@@ -695,8 +694,7 @@ export class WebQueryHelper {
 	async listSlugsForSitemap(cursor: string | null): Promise<SitemapResult> {
 		const decoded = decodeCursor(cursor)
 		const decodedNodeId = decoded?.['nodeId']
-		const afterNodeId =
-			typeof decodedNodeId === 'string' ? decodedNodeId : null
+		const afterNodeId = typeof decodedNodeId === 'string' ? decodedNodeId : null
 
 		const conditions: SQL[] = [isNotNull(fuelStation.slug)]
 		if (afterNodeId) conditions.push(gt(fuelStation.nodeId, afterNodeId))
@@ -736,8 +734,7 @@ export class WebQueryHelper {
 				slug: row.slug ?? '',
 				lastmod: lastmodByNodeId.get(row.nodeId) ?? null
 			})),
-			nextCursor:
-				hasMore && last ? encodeCursor({ nodeId: last.nodeId }) : null
+			nextCursor: hasMore && last ? encodeCursor({ nodeId: last.nodeId }) : null
 		}
 	}
 }

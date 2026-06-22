@@ -1,15 +1,15 @@
 /** Shared display formatting helpers for the public station pages. */
 
 /** Format a price in pence as e.g. `188.9` (one decimal, no trailing unit). */
-export function formatPence(pricePence: number | null | undefined): string | null {
+export function formatPence(
+	pricePence: number | null | undefined
+): string | null {
 	if (pricePence === null || pricePence === undefined) return null
 	return (Math.round(pricePence * 10) / 10).toFixed(1)
 }
 
 /** Format a price in pence as `188.9p`. */
-export function formatPenceUnit(
-	pricePence: number | null | undefined
-): string {
+export function formatPenceUnit(pricePence: number | null | undefined): string {
 	const value = formatPence(pricePence)
 	return value === null ? '—' : `${value}p`
 }

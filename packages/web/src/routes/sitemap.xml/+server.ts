@@ -25,10 +25,10 @@ export const GET: RequestHandler = async ({ platform, setHeaders }) => {
 		for (const entry of result.items) {
 			if (!entry.slug) continue
 			const loc = `${SITE}/station/${escapeXml(entry.slug)}`
-			const lastmod = entry.lastmod
-				? `<lastmod>${entry.lastmod}</lastmod>`
-				: ''
-			urls.push(`<url><loc>${loc}</loc>${lastmod}<changefreq>daily</changefreq></url>`)
+			const lastmod = entry.lastmod ? `<lastmod>${entry.lastmod}</lastmod>` : ''
+			urls.push(
+				`<url><loc>${loc}</loc>${lastmod}<changefreq>daily</changefreq></url>`
+			)
 		}
 		if (!result.nextCursor) break
 		cursor = result.nextCursor

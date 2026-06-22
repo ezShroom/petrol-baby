@@ -29,6 +29,7 @@ import {
 } from './cleanup/duplicates'
 import type { PreprocessedStation } from './cleanup/preprocess'
 import { MAX_SQLITE_VARS_PER_STATEMENT, REPORTING_URL } from './constants'
+import { AmenityNamer } from './data/amenity_namer'
 import {
 	StationInfoHelper,
 	type CleanedStationRecord,
@@ -36,7 +37,6 @@ import {
 } from './data/info_helper'
 import { PriceInfoHelper, type BackfillPriceRecord } from './data/price_helper'
 import { PriceQueryHelper } from './data/price_query_helper'
-import { AmenityNamer } from './data/amenity_namer'
 import { buildStationSlug } from './data/slug'
 import { WebQueryHelper } from './data/web_query_helper'
 import migrations from './db/generated/migrations.js'

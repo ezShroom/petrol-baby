@@ -44,7 +44,10 @@ const CASING_FIXUPS: Record<string, string> = {
 }
 
 function applyCasingFixups(label: string): string {
-	return label.replace(/[A-Za-z]+/g, (word) => CASING_FIXUPS[word.toLowerCase()] ?? word)
+	return label.replace(
+		/[A-Za-z]+/g,
+		(word) => CASING_FIXUPS[word.toLowerCase()] ?? word
+	)
 }
 
 /**

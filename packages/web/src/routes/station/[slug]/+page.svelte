@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { resolve } from '$app/paths'
+	import ogImage from '$lib/assets/opengraph.png'
 	import Footer from '$lib/components/Footer.svelte'
 	import PokeCta from '$lib/components/PokeCta.svelte'
 	import StationExplorer from '$lib/components/StationExplorer.svelte'
@@ -11,7 +12,6 @@
 		openingDayLabel,
 		relativeTime
 	} from '$lib/format'
-	import ogImage from '$lib/assets/opengraph.png'
 	import type { PageData } from './$types'
 
 	const SITE = 'https://petrol.baby'
@@ -352,7 +352,9 @@
 				href="https://www.fuel-finder.service.gov.uk/"
 				class="text-text-link underline underline-offset-2">Fuel Finder</a
 			>
-			and refreshed within roughly 30 minutes. {cityLine ? `${station.displayName} is in ${cityLine}.` : ''}
+			and refreshed within roughly 30 minutes. {cityLine
+				? `${station.displayName} is in ${cityLine}.`
+				: ''}
 		</p>
 	</main>
 

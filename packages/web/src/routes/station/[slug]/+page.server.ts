@@ -2,7 +2,11 @@ import { error, redirect } from '@sveltejs/kit'
 import { fetchStationPage } from '$lib/server/backend'
 import type { PageServerLoad } from './$types'
 
-export const load: PageServerLoad = async ({ params, platform, setHeaders }) => {
+export const load: PageServerLoad = async ({
+	params,
+	platform,
+	setHeaders
+}) => {
 	const result = await fetchStationPage(platform, params.slug)
 
 	if (result.status === 'not_found') {

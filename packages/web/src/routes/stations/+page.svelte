@@ -56,7 +56,7 @@
 				name="q"
 				value={data.query}
 				placeholder="Search by name, town or postcode…"
-				class="border-border bg-surface text-text-heading placeholder:text-text-muted focus:border-accent flex-1 rounded-xl border px-4 py-2.5 text-sm outline-none transition-colors"
+				class="border-border bg-surface text-text-heading placeholder:text-text-muted focus:border-accent flex-1 rounded-xl border px-4 py-2.5 text-sm transition-colors outline-none"
 			/>
 			<button
 				type="submit"
@@ -67,7 +67,9 @@
 		</form>
 
 		<!-- Listing -->
-		<ul class="border-border mt-6 divide-y divide-[var(--color-border)] border-y">
+		<ul
+			class="border-border mt-6 divide-y divide-[var(--color-border)] border-y"
+		>
 			{#each data.items as item (item.nodeId)}
 				<li>
 					<a

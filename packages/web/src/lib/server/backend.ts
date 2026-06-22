@@ -1,10 +1,10 @@
-import { error } from '@sveltejs/kit'
 import type {
 	CompareData,
 	SitemapResult,
 	SlugResolution,
 	StationListResult
 } from '@petrol-baby/worker'
+import { error } from '@sveltejs/kit'
 
 type Backend = App.Platform['env']['MCP_BACKEND']
 
