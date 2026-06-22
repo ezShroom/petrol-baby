@@ -5,6 +5,7 @@ import {
 	eq,
 	getTableColumns,
 	inArray,
+	isNull,
 	lt,
 	not,
 	notExists,
@@ -28,6 +29,7 @@ import {
 } from './cleanup/duplicates'
 import type { PreprocessedStation } from './cleanup/preprocess'
 import { MAX_SQLITE_VARS_PER_STATEMENT, REPORTING_URL } from './constants'
+import { AmenityNamer } from './data/amenity_namer'
 import {
 	StationInfoHelper,
 	type CleanedStationRecord,
@@ -35,6 +37,8 @@ import {
 } from './data/info_helper'
 import { PriceInfoHelper, type BackfillPriceRecord } from './data/price_helper'
 import { PriceQueryHelper } from './data/price_query_helper'
+import { buildStationSlug } from './data/slug'
+import { WebQueryHelper } from './data/web_query_helper'
 import migrations from './db/generated/migrations.js'
 import { setAll } from './db/helpers'
 import {
@@ -70,6 +74,14 @@ const PRUNE_INTERVAL_MS = ms('6h')
 const LIST_RESULTS_LIMIT = 20
 const LIST_RESULTS_FETCH_LIMIT = LIST_RESULTS_LIMIT + 1
 const PRICE_HISTORY_LIMIT = 500
+const SLUG_BACKFILL_BATCH = 500
+/** Amenities named per maintenance tick (one LLM call each, cached forever). */
+const AMENITY_NAMING_BATCH = 8
+
+/** Tag applied to our hibernatable live-price websockets to keep them
+ * distinct from the MCP/partyserver transport sockets. */
+const LIVE_TAG = 'pb-live'
+const LIVE_PATH = '/live'
 
 type MaintenanceKind = 'backfill' | 'scheduled'
 
@@ -152,6 +164,8 @@ export class PetrolBabyObject extends McpAgent<Env> {
 	private stationInfoHelper
 	private priceInfoHelper
 	private priceQueryHelper: PriceQueryHelper
+	private webQueryHelper: WebQueryHelper
+	private amenityNamer: AmenityNamer
 	private maintenancePromise: Promise<void> | null = null
 	private maintenanceKind: MaintenanceKind | null = null
 	private lastPrunedAt: number | null = null
@@ -161,6 +175,8 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		this.db = drizzle(ctx.storage, { logger: false })
 		this.oauth = new FuelFinderOAuth(this.db, env)
 		this.priceQueryHelper = new PriceQueryHelper(this.db)
+		this.webQueryHelper = new WebQueryHelper(this.db)
+		this.amenityNamer = new AmenityNamer({ env: this.env })
 
 		this.stationInfoHelper = new StationInfoHelper({
 			env: this.env,
@@ -305,17 +321,46 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		return Date.now() - lastUpdatedAt.getTime() >= intervalMs
 	}
 
+	/**
+	 * Best-effort cache backfills (slugs, amenity names) that must never break
+	 * the core maintenance tick — a network/LLM hiccup shouldn't stop price
+	 * updates or leave the cron throwing.
+	 */
+	private async runCacheBackfills() {
+		try {
+			await this.backfillMissingSlugs()
+		} catch (error) {
+			console.error('Slug backfill failed:', error)
+		}
+		try {
+			await this.backfillAmenityDisplayNames()
+		} catch (error) {
+			console.error('Amenity naming failed:', error)
+		}
+	}
+
 	private async runScheduledMaintenanceInternal() {
 		const { stations, prices, prune } = await this.readMetadataRows()
 
 		await this.maybePruneOldPricingEvents(prune)
 
 		if (!stations || !prices) {
+			// The backfill is normally kicked off by the McpAgent `init()`
+			// lifecycle, which only runs when a client connects to `/mcp`. The
+			// cron reaches the DO via a native RPC method, which bypasses that
+			// lifecycle — so without this, an instance that has never had an MCP
+			// connection would log "Skipping…" forever and never populate. Run
+			// the backfill here so the data (and the public station pages) come
+			// up on their own. The maintenance lock prevents overlapping ticks.
 			console.log(
-				'Skipping scheduled maintenance until both station and price backfills complete.'
+				'Station and/or price backfill incomplete; running backfill from scheduled maintenance.'
 			)
+			await this.backfillMissingRegions()
+			await this.runCacheBackfills()
 			return
 		}
+
+		await this.runCacheBackfills()
 
 		const shouldUpdateStations = this.isUpdateDue(
 			stations.lastUpdatedAt,
@@ -348,6 +393,157 @@ export class PetrolBabyObject extends McpAgent<Env> {
 		}
 
 		await promise
+	}
+
+	// ─── Web page RPC (called via the WorkerEntrypoint service binding) ──────
+
+	public async getStationPage(slug: string) {
+		return this.webQueryHelper.getStationPage(slug)
+	}
+
+	public async getStationCompare(nodeId: string, fuelType: string) {
+		return this.webQueryHelper.getCompareDataByNodeId(nodeId, fuelType)
+	}
+
+	public async listStationsPage(options: {
+		cursor: string | null
+		query: string | null
+		limit?: number
+	}) {
+		return this.webQueryHelper.listStations(options)
+	}
+
+	public async listSitemapSlugs(cursor: string | null) {
+		return this.webQueryHelper.listSlugsForSitemap(cursor)
+	}
+
+	// ─── Live price websocket (hibernatable, isolated from MCP transport) ────
+
+	private isLiveSocket(ws: WebSocket): boolean {
+		try {
+			return this.ctx.getTags(ws).includes(LIVE_TAG)
+		} catch {
+			return false
+		}
+	}
+
+	/**
+	 * Handle the `/live?station=<nodeId>` websocket upgrade. The nodeId is held
+	 * in the socket's tags so no in-memory subscription state is needed — the
+	 * socket (and its tag) survives Durable Object hibernation, and we can find
+	 * all sockets for a station with `ctx.getWebSockets('node:<id>')`.
+	 *
+	 * All other requests fall through to the McpAgent/partyserver handler.
+	 */
+	override async fetch(request: Request): Promise<Response> {
+		const url = new URL(request.url)
+		if (
+			url.pathname === LIVE_PATH &&
+			request.headers.get('Upgrade')?.toLowerCase() === 'websocket'
+		) {
+			const nodeId = url.searchParams.get('station')
+			if (!nodeId) {
+				return new Response('Missing station parameter', { status: 400 })
+			}
+			const pair = new WebSocketPair()
+			const client = pair[0]
+			const server = pair[1]
+			this.ctx.acceptWebSocket(server, [LIVE_TAG, `node:${nodeId}`])
+			return new Response(null, { status: 101, webSocket: client })
+		}
+		return super.fetch(request)
+	}
+
+	override async webSocketMessage(
+		ws: WebSocket,
+		message: string | ArrayBuffer
+	): Promise<void> {
+		if (this.isLiveSocket(ws)) {
+			// Clients only listen; reply to a ping to keep the link warm.
+			if (message === 'ping') {
+				try {
+					ws.send('pong')
+				} catch {
+					/* socket already gone */
+				}
+			}
+			return
+		}
+		return super.webSocketMessage(ws, message)
+	}
+
+	override async webSocketClose(
+		ws: WebSocket,
+		code: number,
+		reason: string,
+		wasClean: boolean
+	): Promise<void> {
+		if (this.isLiveSocket(ws)) {
+			try {
+				ws.close(code, reason)
+			} catch {
+				/* already closed */
+			}
+			return
+		}
+		return super.webSocketClose(ws, code, reason, wasClean)
+	}
+
+	override async webSocketError(ws: WebSocket, error: unknown): Promise<void> {
+		if (this.isLiveSocket(ws)) {
+			return
+		}
+		return super.webSocketError(ws, error)
+	}
+
+	/**
+	 * Push freshly ingested prices to any live sockets watching the affected
+	 * stations. Best-effort: never throws into the ingest path.
+	 */
+	private broadcastLivePrices(events: BackfillPriceRecord[]) {
+		try {
+			const latestByNode = new Map<
+				string,
+				Map<string, { pricePence: number; timestamp: Date }>
+			>()
+			for (const event of events) {
+				if (!event.nodeId) continue
+				let byType = latestByNode.get(event.nodeId)
+				if (!byType) {
+					byType = new Map()
+					latestByNode.set(event.nodeId, byType)
+				}
+				const existing = byType.get(event.typeCode)
+				if (!existing || event.timestamp > existing.timestamp) {
+					byType.set(event.typeCode, {
+						pricePence: event.pricePence,
+						timestamp: event.timestamp
+					})
+				}
+			}
+
+			for (const [nodeId, byType] of latestByNode) {
+				const sockets = this.ctx.getWebSockets(`node:${nodeId}`)
+				if (sockets.length === 0) continue
+				for (const [typeCode, value] of byType) {
+					const payload = JSON.stringify({
+						type: 'price',
+						fuelType: typeCode,
+						pricePence: value.pricePence,
+						timestamp: value.timestamp.toISOString()
+					})
+					for (const socket of sockets) {
+						try {
+							socket.send(payload)
+						} catch {
+							/* socket gone; ignore */
+						}
+					}
+				}
+			}
+		} catch (error) {
+			console.error('Failed to broadcast live prices:', error)
+		}
 	}
 
 	private async insertKnownFuelTypes(typeCodes: string[]) {
@@ -481,7 +677,8 @@ export class PetrolBabyObject extends McpAgent<Env> {
 				longitude: station.longitude,
 				permanentClosureDate: station.permanentClosureDate,
 				coordinatesValid: station.coordinatesValid,
-				sourceHash: station.sourceHash
+				sourceHash: station.sourceHash,
+				slug: buildStationSlug(station)
 			}))
 
 			if (options.onlyWhenSourceHashChanged) {
@@ -978,6 +1175,7 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			...new Set(priceInfo.map((price) => price.typeCode))
 		])
 		await this.insertPricingEvents(priceInfo)
+		this.broadcastLivePrices(priceInfo)
 		await this.markUpdateComplete(DataRegion.Prices, timeStarted)
 		console.log('Price update done.')
 	}
@@ -988,6 +1186,63 @@ export class PetrolBabyObject extends McpAgent<Env> {
 			throw new Error(
 				'Fuel data is still being backfilled. Try this query again shortly.'
 			)
+		}
+	}
+
+	/**
+	 * Populate the `slug` column for any stations that predate it (or were
+	 * written before slugs were generated). Cheap no-op once every row has a
+	 * slug: the guard query stops after the first NULL.
+	 */
+	private async backfillMissingSlugs() {
+		const pending = await this.db
+			.select({
+				nodeId: fuelStation.nodeId,
+				tradingName: fuelStation.tradingName,
+				brandName: fuelStation.brandName,
+				city: fuelStation.city
+			})
+			.from(fuelStation)
+			.where(isNull(fuelStation.slug))
+			.limit(SLUG_BACKFILL_BATCH)
+
+		if (pending.length === 0) {
+			return
+		}
+
+		console.log(`Backfilling slugs for ${pending.length} stations...`)
+		for (const station of pending) {
+			await this.db
+				.update(fuelStation)
+				.set({ slug: buildStationSlug(station) })
+				.where(eq(fuelStation.nodeId, station.nodeId))
+		}
+	}
+
+	/**
+	 * Give known amenity codes friendly display names, one LLM call per code,
+	 * cached forever in `known_amenity.displayName`. Processed in small batches
+	 * per maintenance tick; a cheap free model and the deterministic fallback
+	 * keep this safe to run unattended. We never re-process a named amenity.
+	 */
+	private async backfillAmenityDisplayNames() {
+		const pending = await this.db
+			.select({ amenityCode: knownAmenity.amenityCode })
+			.from(knownAmenity)
+			.where(isNull(knownAmenity.displayName))
+			.limit(AMENITY_NAMING_BATCH)
+
+		if (pending.length === 0) {
+			return
+		}
+
+		console.log(`Naming ${pending.length} amenities...`)
+		for (const { amenityCode } of pending) {
+			const displayName = await this.amenityNamer.nameOne(amenityCode)
+			await this.db
+				.update(knownAmenity)
+				.set({ displayName })
+				.where(eq(knownAmenity.amenityCode, amenityCode))
 		}
 	}
 

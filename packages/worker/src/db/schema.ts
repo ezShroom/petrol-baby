@@ -6,7 +6,8 @@ import {
 	primaryKey,
 	real,
 	sqliteTable,
-	text
+	text,
+	uniqueIndex
 } from 'drizzle-orm/sqlite-core'
 import { KeyType } from '../types/KeyType'
 
@@ -34,13 +35,19 @@ export const fuelStation = sqliteTable(
 		longitude: real(),
 		permanentClosureDate: text(),
 		coordinatesValid: integer({ mode: 'boolean' }),
-		sourceHash: text()
+		sourceHash: text(),
+		// Human-readable, collision-proof URL slug for the public web pages,
+		// e.g. `asda-hollingbury-brighton-k7f2a9`.  The trailing token is
+		// derived from the immutable nodeId, so the slug is stable and unique.
+		slug: text()
 	},
 	(table) => [
 		index('fuel_station_postcode_idx').on(table.postcode),
 		index('fuel_station_country_idx').on(table.country),
 		index('fuel_station_city_idx').on(table.city),
-		index('fuel_station_brand_name_idx').on(table.brandName)
+		index('fuel_station_brand_name_idx').on(table.brandName),
+		uniqueIndex('fuel_station_slug_idx').on(table.slug),
+		index('fuel_station_lat_lng_idx').on(table.latitude, table.longitude)
 	]
 )
 export const knownType = sqliteTable('known_type', {
@@ -84,7 +91,10 @@ export const pricingEvent = sqliteTable(
 	]
 )
 export const knownAmenity = sqliteTable('known_amenity', {
-	amenityCode: text().primaryKey()
+	amenityCode: text().primaryKey(),
+	// Human-friendly label (e.g. `adblue_packaged` -> `AdBlue Packaged`),
+	// generated once via an LLM and cached forever. Null until processed.
+	displayName: text()
 })
 export const stationAmenity = sqliteTable(
 	'station_amenity',

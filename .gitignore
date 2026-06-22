@@ -40,3 +40,5 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Proprietary fonts (downloaded from R2 in CI)
 packages/web/src/lib/assets/InnovatorGrotesk*
+
+.opencode/
