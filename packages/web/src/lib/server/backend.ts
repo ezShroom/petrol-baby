@@ -57,22 +57,3 @@ export async function fetchSitemapSlugs(
 	const backend = getBackend(platform)
 	return JSON.parse(await backend.listSitemapSlugs(cursor)) as SitemapResult
 }
-
-/**
- * Forward a WebSocket upgrade (or any request) straight to the backend worker,
- * preserving the Cloudflare `webSocket` handle on the 101 response. Used by the
- * `/live` endpoint — in dev the cf-websockets Vite plugin calls that endpoint
- * directly; in production SvelteKit routes to it.
- */
-export function proxyToBackend(
-	platform: App.Platform | undefined,
-	request: Request
-): Promise<Response> {
-	const backend = platform?.env?.MCP_BACKEND
-	if (!backend) {
-		return Promise.resolve(
-			new Response('Live backend unavailable', { status: 503 })
-		)
-	}
-	return backend.fetch(request)
-}
