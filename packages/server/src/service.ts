@@ -749,7 +749,12 @@ export class PetrolBabyService {
 		}
 	}
 
-	private async insertStationRelations(stationInfo: StationUpsertRecord[]) {
+	private async insertStationRelations(
+		stationInfo: StationUpsertRecord[],
+		{
+			includePotentialDuplicates = true
+		}: { includePotentialDuplicates?: boolean } = {}
+	) {
 		const allFuelTypeCodes = [
 			...new Set(stationInfo.flatMap((s) => s.fuelTypes))
 		]
@@ -761,7 +766,12 @@ export class PetrolBabyService {
 		await this.insertAvailableFuelTypes(stationInfo)
 		await this.insertStationAmenities(stationInfo)
 		await this.insertStationOpeningTimes(stationInfo)
-		await this.insertPotentialDuplicates(stationInfo)
+		// Duplicate links have a foreign key to any station's nodeId, so they
+		// cannot be inserted while stations are still being persisted in chunks.
+		// The backfill defers them to rebuildPotentialDuplicates() at the end.
+		if (includePotentialDuplicates) {
+			await this.insertPotentialDuplicates(stationInfo)
+		}
 	}
 
 	private async deleteStationRelations(nodeIds: string[]) {
@@ -1065,7 +1075,9 @@ export class PetrolBabyService {
 				onlyWhenSourceHashChanged: false
 			})
 			await this.deleteStationRelations(part.map((r) => r.nodeId))
-			await this.insertStationRelations(part)
+			await this.insertStationRelations(part, {
+				includePotentialDuplicates: false
+			})
 		}
 
 		await this.rebuildPotentialDuplicates()
