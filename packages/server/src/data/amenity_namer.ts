@@ -7,7 +7,7 @@ import type { ServerConfig } from '../config'
  * only ever call this once per distinct code (the result is cached in the DB
  * forever), so quality matters more than speed and cost is negligible.
  */
-const AMENITY_NAMING_MODEL = 'google/gemma-4-31b-it:free'
+const AMENITY_NAMING_MODEL = 'google/gemma-4-31b-it'
 const AMENITY_NAMING_TIMEOUT_MS = ms('30s')
 
 const SYSTEM_PROMPT = `You convert fuel-station amenity codes into short, human-friendly labels in Title Case.

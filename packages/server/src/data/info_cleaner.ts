@@ -153,7 +153,7 @@ export class StationCleaner {
 						httpReferer: 'https://petrol.baby/',
 						appTitle: 'petrol.baby',
 						chatRequest: {
-							model: 'gpt-5.4',
+							model: 'openai/gpt-5.6-luna',
 							messages: [
 								{ role: 'system', content: prompt },
 								{ role: 'system', content: prompt },
