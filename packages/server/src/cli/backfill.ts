@@ -27,7 +27,13 @@ if (!config.openRouterApiKey) {
 
 console.log(`Database: ${config.databasePath}`)
 console.log(`Fuel Finder API: ${config.fuelFinderBaseUrl}`)
-console.log(`LLM concurrency: ${config.llmConcurrency}`)
+console.log(
+	`LLM concurrency: ${
+		Number.isFinite(config.llmConcurrency)
+			? config.llmConcurrency
+			: 'unbounded'
+	}`
+)
 
 const service = new PetrolBabyService(config)
 

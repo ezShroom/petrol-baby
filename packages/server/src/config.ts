@@ -27,7 +27,10 @@ export type ServerConfig = {
 export const PRODUCTION_FUEL_FINDER_BASE_URL =
 	'https://www.fuel-finder.service.gov.uk/api'
 
-const DEFAULT_LLM_CONCURRENCY = 20
+// Unbounded by default: fire every batch at once. OpenRouter scales limits
+// with your credit balance, so throttling here is an antipattern. Set
+// LLM_CONCURRENCY to an integer only if you deliberately want a cap.
+const DEFAULT_LLM_CONCURRENCY = Number.POSITIVE_INFINITY
 
 function required(
 	env: Record<string, string | undefined>,
@@ -70,7 +73,7 @@ export function loadConfig(
 	const llmConcurrency = llmConcurrencyRaw
 		? Number.parseInt(llmConcurrencyRaw, 10)
 		: DEFAULT_LLM_CONCURRENCY
-	if (!Number.isInteger(llmConcurrency) || llmConcurrency < 1) {
+	if (llmConcurrencyRaw && (!Number.isInteger(llmConcurrency) || llmConcurrency < 1)) {
 		throw new Error(
 			`LLM_CONCURRENCY must be a positive integer (got "${llmConcurrencyRaw}")`
 		)

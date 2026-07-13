@@ -14,7 +14,7 @@ describe('loadConfig', () => {
 		expect(config.fuelFinderBaseUrl).toBe(
 			'https://www.fuel-finder.service.gov.uk/api'
 		)
-		expect(config.llmConcurrency).toBe(3)
+		expect(config.llmConcurrency).toBe(Number.POSITIVE_INFINITY)
 		expect(config.openRouterApiKey).toBeUndefined()
 	})
 

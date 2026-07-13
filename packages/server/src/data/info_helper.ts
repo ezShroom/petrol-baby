@@ -207,9 +207,9 @@ export class StationInfoHelper {
 			`Cleaning ${preprocessed.length} stations in ${batches.length} batches of up to ${LLM_BATCH_SIZE}`
 		)
 
-		// Bounded concurrency: on a VPS there is no platform subrequest cap,
-		// but hammering OpenRouter with hundreds of concurrent batches invites
-		// rate limits and makes failures expensive. Order is preserved.
+		// Unbounded by default (config.llmConcurrency is Infinity): every batch
+		// fires at once. OpenRouter's limits scale with credit, so there is no
+		// reason to throttle. Order is preserved. Set LLM_CONCURRENCY to cap it.
 		const results = await mapWithConcurrency(
 			batches,
 			this.config.llmConcurrency,
