@@ -57,7 +57,7 @@ const SCHEDULER_TICK_MS = ms('1m')
 const SLUG_BACKFILL_BATCH = 500
 /** Amenities named per maintenance tick (one LLM call each, cached forever). */
 const AMENITY_NAMING_BATCH = 8
-/** Stations persisted per resumable backfill chunk (multiple LLM batches). */
+/** Stations written to SQLite per backfill persist chunk (cleaning is done up front). */
 const BACKFILL_PERSIST_CHUNK = 100
 
 type MaintenanceKind = 'backfill' | 'scheduled'
@@ -1038,12 +1038,10 @@ export class PetrolBabyService {
 	// ─── Backfills (foreground CLI only) ─────────────────────────────────
 
 	/**
-	 * Full station backfill, resumable. Stations are fetched once, then
-	 * cleaned and persisted in chunks — an interruption loses at most one
-	 * chunk of LLM work because already-persisted stations are recognised by
-	 * their `sourceHash` on the next run and skipped. Duplicate links are
-	 * rebuilt from the database at the end, which also repairs any asymmetry
-	 * left by earlier partial runs.
+	 * Full station backfill. Stations are fetched once and cleaned in a single
+	 * pass so every LLM batch fans out concurrently (see `cleanStations`),
+	 * then the prepared rows are persisted to SQLite in chunks. Duplicate
+	 * links are rebuilt from the database at the end.
 	 */
 	private async backfillStations() {
 		const timeStarted = new Date()
@@ -1052,19 +1050,22 @@ export class PetrolBabyService {
 		const preprocessed =
 			await this.stationInfoHelper.fetchAllStationsPreprocessed()
 
-		const chunks = chunk(preprocessed, BACKFILL_PERSIST_CHUNK)
+		// Clean the entire set at once: all LLM batches run concurrently rather
+		// than being throttled to one persist-chunk at a time.
+		const records = await this.buildStationUpdateRecords(preprocessed)
+
+		const chunks = chunk(records, BACKFILL_PERSIST_CHUNK)
 		for (let i = 0; i < chunks.length; i++) {
 			const part = chunks[i]
 			if (!part) continue
 			console.log(
-				`Backfill chunk ${i + 1}/${chunks.length} (${part.length} stations)...`
+				`Persisting station chunk ${i + 1}/${chunks.length} (${part.length} stations)...`
 			)
-			const records = await this.buildStationUpdateRecords(part)
-			await this.upsertFuelStations(records, {
+			await this.upsertFuelStations(part, {
 				onlyWhenSourceHashChanged: false
 			})
-			await this.deleteStationRelations(records.map((r) => r.nodeId))
-			await this.insertStationRelations(records)
+			await this.deleteStationRelations(part.map((r) => r.nodeId))
+			await this.insertStationRelations(part)
 		}
 
 		await this.rebuildPotentialDuplicates()

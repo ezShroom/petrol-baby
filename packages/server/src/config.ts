@@ -73,7 +73,10 @@ export function loadConfig(
 	const llmConcurrency = llmConcurrencyRaw
 		? Number.parseInt(llmConcurrencyRaw, 10)
 		: DEFAULT_LLM_CONCURRENCY
-	if (llmConcurrencyRaw && (!Number.isInteger(llmConcurrency) || llmConcurrency < 1)) {
+	if (
+		llmConcurrencyRaw &&
+		(!Number.isInteger(llmConcurrency) || llmConcurrency < 1)
+	) {
 		throw new Error(
 			`LLM_CONCURRENCY must be a positive integer (got "${llmConcurrencyRaw}")`
 		)
