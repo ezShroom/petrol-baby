@@ -13,7 +13,7 @@ function escapeXml(value: string): string {
 		.replace(/'/g, '&apos;')
 }
 
-export const GET: RequestHandler = async ({ platform, setHeaders }) => {
+export const GET: RequestHandler = async ({ setHeaders }) => {
 	const urls: string[] = [
 		`<url><loc>${SITE}/</loc><changefreq>daily</changefreq></url>`,
 		`<url><loc>${SITE}/stations</loc><changefreq>daily</changefreq></url>`
@@ -21,7 +21,7 @@ export const GET: RequestHandler = async ({ platform, setHeaders }) => {
 
 	let cursor: string | null = null
 	for (let page = 0; page < MAX_PAGES; page++) {
-		const result = await fetchSitemapSlugs(platform, cursor)
+		const result = await fetchSitemapSlugs(cursor)
 		for (const entry of result.items) {
 			if (!entry.slug) continue
 			const loc = `${SITE}/station/${escapeXml(entry.slug)}`

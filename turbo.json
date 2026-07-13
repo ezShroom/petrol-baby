@@ -1,10 +1,15 @@
 {
 	"$schema": "https://turborepo.com/schema.json",
 	"globalPassThroughEnv": [
-		"USE_API",
+		"DATABASE_PATH",
+		"FUEL_FINDER_BASE_URL",
 		"FUEL_FINDER_CLIENT_ID",
 		"FUEL_FINDER_CLIENT_SECRET",
-		"OPENROUTER_API_KEY"
+		"OPENROUTER_API_KEY",
+		"LLM_CONCURRENCY",
+		"HOST",
+		"PORT",
+		"ORIGIN"
 	],
 	"tasks": {
 		"build": {
@@ -28,6 +33,11 @@
 		},
 		"check-types": {
 			"dependsOn": ["^build", "^check-types"],
+			"outputs": []
+		},
+		"test": {
+			"dependsOn": ["^build"],
+			"inputs": ["src/**", "test/**"],
 			"outputs": []
 		}
 	}

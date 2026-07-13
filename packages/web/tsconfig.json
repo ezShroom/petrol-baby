@@ -11,6 +11,7 @@
 		"sourceMap": true,
 		"strict": true,
 		"moduleResolution": "bundler",
-		"types": ["./worker-configuration.d.ts"]
+		"allowImportingTsExtensions": true,
+		"types": ["@types/bun"]
 	}
 }

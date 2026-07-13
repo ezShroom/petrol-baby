@@ -20,7 +20,7 @@
 	const payload = $derived(data.payload)
 	const station = $derived(payload.station)
 
-	// ─── Live prices over the websocket ──────────────────────────────────
+	// ─── Live prices over server-sent events ─────────────────────────────
 	type LiveUpdate = { fuelType: string; pricePence: number; timestamp: string }
 	let liveOverrides = $state<Record<string, number>>({})
 	let explorerRef = $state<{ applyLivePrice: (u: LiveUpdate) => void }>()
@@ -32,36 +32,25 @@
 	$effect(() => {
 		const nodeId = station.nodeId
 		liveOverrides = {}
-		let socket: WebSocket | null = null
-		let closed = false
-		let retry: ReturnType<typeof setTimeout> | undefined
 
-		const connect = () => {
-			const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-			socket = new WebSocket(
-				`${proto}://${location.host}/live?station=${encodeURIComponent(nodeId)}`
-			)
-			socket.addEventListener('message', (event) => {
-				try {
-					const msg = JSON.parse(event.data) as LiveUpdate & { type: string }
-					if (msg.type !== 'price') return
-					liveOverrides = { ...liveOverrides, [msg.fuelType]: msg.pricePence }
-					explorerRef?.applyLivePrice(msg)
-				} catch {
-					/* ignore malformed frames */
-				}
-			})
-			socket.addEventListener('close', () => {
-				if (!closed) retry = setTimeout(connect, 5000)
-			})
-			socket.addEventListener('error', () => socket?.close())
+		// EventSource reconnects on its own (the server suggests a 5s retry),
+		// so no manual retry loop is needed.
+		const source = new EventSource(
+			`/live?station=${encodeURIComponent(nodeId)}`
+		)
+		source.onmessage = (event) => {
+			try {
+				const msg = JSON.parse(event.data) as LiveUpdate & { type: string }
+				if (msg.type !== 'price') return
+				liveOverrides = { ...liveOverrides, [msg.fuelType]: msg.pricePence }
+				explorerRef?.applyLivePrice(msg)
+			} catch {
+				/* ignore malformed frames */
+			}
 		}
-		connect()
 
 		return () => {
-			closed = true
-			clearTimeout(retry)
-			socket?.close()
+			source.close()
 		}
 	})
 

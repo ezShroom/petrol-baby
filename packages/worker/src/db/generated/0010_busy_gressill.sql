@@ -1,1 +1,0 @@
-ALTER TABLE `fuel_station` DROP COLUMN `permanentlyClosed`;

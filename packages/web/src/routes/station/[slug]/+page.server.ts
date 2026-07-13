@@ -2,12 +2,8 @@ import { error, redirect } from '@sveltejs/kit'
 import { fetchStationPage } from '$lib/server/backend'
 import type { PageServerLoad } from './$types'
 
-export const load: PageServerLoad = async ({
-	params,
-	platform,
-	setHeaders
-}) => {
-	const result = await fetchStationPage(platform, params.slug)
+export const load: PageServerLoad = async ({ params, setHeaders }) => {
+	const result = await fetchStationPage(params.slug)
 
 	if (result.status === 'not_found') {
 		throw error(404, 'We don’t have a station at that address.')

@@ -4,6 +4,7 @@ node_modules
 # output
 out
 dist
+build
 *.tgz
 
 # code coverage
@@ -33,10 +34,14 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # Finder (MacOS) folder config
 .DS_Store
 
-.wrangler/
 .claude/
 .turbo/
 .svelte-kit/
+
+# local databases
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 
 # Proprietary fonts (downloaded from R2 in CI)
 packages/web/src/lib/assets/InnovatorGrotesk*

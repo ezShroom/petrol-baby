@@ -1,7 +1,7 @@
 # `@petrol-baby/web`
 
 SvelteKit frontend for `petrol.baby`. This package is optional if you only want
-the MCP backend, but it is the public-facing worker used by the hosted site.
+the MCP backend, but it is the public-facing app used by the hosted site.
 
 ## Proprietary font setup
 
@@ -12,7 +12,7 @@ ship it and the generated font file is ignored by Git:
 - `packages/web/src/lib/assets/InnovatorGroteskVF.woff2`
 
 If you have a licensed copy and want the same typography, keep the font in a
-private object store and download it during the build with `pnpm fetch-font`.
+private object store and download it during the build with `bun run fetch-font`.
 The current script speaks the S3 API, so Cloudflare R2, AWS S3, Backblaze B2,
 MinIO, or any similar bucket will work as long as you can provide an endpoint,
 bucket, and credentials.
@@ -28,7 +28,7 @@ bucket, and credentials.
    - `FONT_SECRET_ACCESS_KEY`: secret key for the bucket.
    - `FONT_FILENAME`: object name in the bucket, such as
      `InnovatorGroteskVF.woff2`.
-3. Run `pnpm fetch-font` before `pnpm build`.
+3. Run `bun run fetch-font` before `bun run build`.
 4. The script downloads the font into `src/lib/assets/InnovatorGroteskVF.woff2`
    so the SvelteKit build can bundle it.
 
@@ -38,5 +38,5 @@ such as `private/fonts/InnovatorGroteskVF.woff2`.
 
 ### If you do not have the font
 
-Skip `pnpm fetch-font` and remove it from your build command. The app will still
+Skip `bun run fetch-font` and remove it from your build command. The app will still
 build; it will just fall back to the next configured sans-serif font.

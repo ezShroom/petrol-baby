@@ -1,11 +1,11 @@
 import { fetchStations } from '$lib/server/backend'
 import type { PageServerLoad } from './$types'
 
-export const load: PageServerLoad = async ({ url, platform, setHeaders }) => {
+export const load: PageServerLoad = async ({ url, setHeaders }) => {
 	const cursor = url.searchParams.get('cursor')
 	const query = url.searchParams.get('q')
 
-	const result = await fetchStations(platform, { cursor, query })
+	const result = await fetchStations({ cursor, query })
 
 	setHeaders({
 		'cache-control':

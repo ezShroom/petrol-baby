@@ -1,0 +1,40 @@
+[Unit]
+Description=petrol.baby fuel price service
+Documentation=https://github.com/your-user/petrol-baby
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=petrol-baby
+Group=petrol-baby
+# The repository checkout. Deploys are `git pull && bun install && bun run
+# build && systemctl restart petrol-baby`.
+WorkingDirectory=/opt/petrol-baby
+# Secrets (FUEL_FINDER_*, OPENROUTER_API_KEY) live here, mode 0600 root-owned:
+EnvironmentFile=/etc/petrol-baby.env
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+Environment=ORIGIN=https://petrol.baby
+# StateDirectory creates /var/lib/petrol-baby owned by the service user.
+Environment=DATABASE_PATH=/var/lib/petrol-baby/petrol-baby.sqlite
+StateDirectory=petrol-baby
+StateDirectoryMode=0700
+
+ExecStart=/usr/local/bin/bun packages/web/build/index.js
+Restart=on-failure
+RestartSec=5
+# adapter-node drains connections for up to SHUTDOWN_TIMEOUT (default 30s);
+# give it headroom before systemd sends SIGKILL.
+TimeoutStopSec=45
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/petrol-baby
+
+[Install]
+WantedBy=multi-user.target

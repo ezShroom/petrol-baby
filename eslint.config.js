@@ -43,9 +43,5 @@ export default ts.config(
 			}
 		}
 	},
-	globalIgnores([
-		'**/.svelte-kit/**',
-		'**/worker-configuration.d.ts',
-		'**/.turbo/**'
-	])
+	globalIgnores(['**/.svelte-kit/**', '**/.turbo/**'])
 )

@@ -22,20 +22,16 @@ jobs:
       - name: Check out
         uses: actions/checkout@v5
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-          cache: pnpm
+          bun-version: 1.3.14
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Lint
-        run: pnpm run lint
+        run: bun run lint
 
   Style:
     runs-on: ubuntu-latest
@@ -44,20 +40,16 @@ jobs:
       - name: Check out
         uses: actions/checkout@v5
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-          cache: pnpm
+          bun-version: 1.3.14
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Style
-        run: pnpm run style
+        run: bun run style
 
   Check-Types:
     runs-on: ubuntu-latest
@@ -66,23 +58,34 @@ jobs:
       - name: Check out
         uses: actions/checkout@v5
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Create worker .env for type generation
-        run: cp packages/worker/.env.example packages/worker/.env
+          bun-version: 1.3.14
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Check types
-        run: pnpm run check-types
+        run: bun run check-types
+
+  Test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Test
+        run: bun run test
 
   Build:
     runs-on: ubuntu-latest
@@ -91,20 +94,35 @@ jobs:
       - name: Check out
         uses: actions/checkout@v5
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Create worker .env for type generation
-        run: cp packages/worker/.env.example packages/worker/.env
+          bun-version: 1.3.14
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Build
-        run: pnpm run build
+        run: bun run build
+
+      - name: Smoke test built server
+        run: |
+          mkdir -p /tmp/pb-smoke
+          DATABASE_PATH=/tmp/pb-smoke/db.sqlite \
+          FUEL_FINDER_CLIENT_ID=smoke FUEL_FINDER_CLIENT_SECRET=smoke \
+          HOST=127.0.0.1 PORT=43117 ORIGIN=http://127.0.0.1:43117 \
+          bun packages/web/build/index.js &
+          SERVER_PID=$!
+          for i in $(seq 1 20); do
+            sleep 0.5
+            curl -sf http://127.0.0.1:43117/healthz && break
+          done
+          curl -sf http://127.0.0.1:43117/healthz
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:43117/readyz)" = "503"
+          curl -sf -X POST http://127.0.0.1:43117/mcp \
+            -H 'Content-Type: application/json' \
+            -H 'Accept: application/json, text/event-stream' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            | grep -q petrol-baby
+          kill -TERM $SERVER_PID
+          wait $SERVER_PID

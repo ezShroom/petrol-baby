@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { CompareData, FuelPrice } from '@petrol-baby/worker'
+	import type { CompareData, FuelPrice } from '@petrol-baby/server'
 	import { resolve } from '$app/paths'
 	import PriceChart from '$lib/components/PriceChart.svelte'
 	import { formatDistance, formatPenceUnit } from '$lib/format'

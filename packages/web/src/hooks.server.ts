@@ -1,33 +1,11 @@
-import type { Handle } from '@sveltejs/kit'
+import type { ServerInit } from '@sveltejs/kit'
+import { startService } from '$lib/server/service'
 
-export const handle: Handle = async ({ event, resolve }) => {
-	if (event.url.pathname === '/mcp' || event.url.pathname === '/live') {
-		const backend = event.platform?.env?.MCP_BACKEND
-		if (!backend) {
-			return new Response('MCP backend unavailable', { status: 503 })
-		}
-		try {
-			const res = await backend.fetch(event.request.url, event.request)
-			// Websocket upgrades (/live, and MCP over WS) return a 101 with a
-			// `webSocket` handle that must be passed through untouched.
-			if (res.status === 101) {
-				return res
-			}
-			return new Response(res.body, {
-				status: res.status,
-				statusText: res.statusText,
-				headers: res.headers
-			})
-		} catch (e) {
-			// Client disconnected (e.g. SSE reconnect, tab closed) — the abort
-			// signal from SvelteKit's node adapter fires and rejects the fetch.
-			// Nothing to send back since the client is already gone.
-			if (e instanceof DOMException && e.name === 'AbortError') {
-				return new Response(null, { status: 499 })
-			}
-			throw e
-		}
-	}
-
-	return resolve(event)
+/**
+ * Runs once before the server answers its first request: opens the SQLite
+ * database (applying migrations) and starts the maintenance scheduler. No-op
+ * during prerendering/build.
+ */
+export const init: ServerInit = () => {
+	startService()
 }

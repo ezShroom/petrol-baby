@@ -1,0 +1,14 @@
+[Unit]
+Description=Daily petrol.baby SQLite snapshot
+
+[Service]
+Type=oneshot
+User=petrol-baby
+Group=petrol-baby
+WorkingDirectory=/opt/petrol-baby/packages/server
+EnvironmentFile=/etc/petrol-baby.env
+Environment=DATABASE_PATH=/var/lib/petrol-baby/petrol-baby.sqlite
+Environment=BACKUP_DIR=/var/lib/petrol-baby/backups
+Environment=BACKUP_RETAIN=7
+ExecStart=/usr/local/bin/bun src/cli/backup.ts
+ReadWritePaths=/var/lib/petrol-baby

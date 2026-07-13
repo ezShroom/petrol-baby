@@ -7,8 +7,6 @@ bun.lock
 
 dist/
 build/
-generated/
-.wrangler/
+migrations/
 .svelte-kit/
 .turbo/
-worker-configuration.d.ts
