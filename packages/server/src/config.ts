@@ -27,7 +27,7 @@ export type ServerConfig = {
 export const PRODUCTION_FUEL_FINDER_BASE_URL =
 	'https://www.fuel-finder.service.gov.uk/api'
 
-const DEFAULT_LLM_CONCURRENCY = 3
+const DEFAULT_LLM_CONCURRENCY = 20
 
 function required(
 	env: Record<string, string | undefined>,
