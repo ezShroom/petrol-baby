@@ -1,0 +1,260 @@
+packages/server/package.json
+  s_97b8f36f81b8b9::t_1742665db2105a 1,3-7,13-22,24-27,32-34
+  s_c2e17299d34d15::t_44b8c23caa79ed 2,8-12,23
+  s_c2e17299d34d15::t_9869f28c16a444 28-31
+packages/server/src/types/StationPagePayload.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-114
+packages/web/src/routes/station/[slug]/compare/+server.ts
+  s_c2e17299d34d15::t_b23f9f5d82d693 1-2,5,12-13,21
+packages/server/src/live.ts
+  s_c2e17299d34d15::t_d0d66d1bef5341 1-176
+.github/workflows/check.yml
+  s_97b8f36f81b8b9::t_1742665db2105a 25-26,28,31,34,43-44,46,49,52,61-62,64,67,70,72,79-80,82-88,90-100,103,106-128
+packages/server/src/types/PriceQueryStationFilter.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-12
+packages/server/src/mcp.ts
+  s_c2e17299d34d15::t_7d21cbe3b55db2 1-335
+packages/server/src/cleanup/coordinates.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-80
+packages/server/src/cleanup/country.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-104
+packages/server/src/query/price_query_text.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-59
+packages/server/src/data/price_query_helper.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 100-103,151-155,157-166,181,183,186,190,253-256,258-269,282-283,285-307
+  s_c2e17299d34d15::t_39902a6c3cecb4 1-99,104-150,156,167-180,182,184-185,187-189,191-252,257,270-281,284,308-368
+.prettierignore
+  s_97b8f36f81b8b9::t_1742665db2105a 10
+packages/server/src/patient_fetch.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-28
+package.json
+  s_97b8f36f81b8b9::t_1742665db2105a 6,12,44-48
+packages/server/src/prompts/addresses.md
+  s_97b8f36f81b8b9::t_1742665db2105a 1-179
+packages/web/src/lib/server/service.ts
+  s_c2e17299d34d15::t_f94bfb5aedddeb 1-36,38-43
+  s_c2e17299d34d15::t_b17eee97ad3df2 37
+packages/server/test/live.test.ts
+  s_c2e17299d34d15::t_416f5c70d9f4f5 1-3,13,15-28,30-33,39-125
+  s_c2e17299d34d15::t_15ca20e04b3a32 34-38
+  s_c2e17299d34d15::t_8ff64ccf8b1686 4-12,14,29
+packages/server/src/cleanup/preprocess.ts
+  s_c2e17299d34d15::t_15ca20e04b3a32 9-12
+  s_c2e17299d34d15::t_b41b705e702328 1-8,13-149
+packages/server/src/types/PriceQueryInput.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-38
+packages/server/src/config.ts
+  s_c2e17299d34d15::t_cacab3a0ce6607 1-31,36-87
+  s_c2e17299d34d15::t_15ca20e04b3a32 32-35
+packages/server/src/data/fuel_naming.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-233
+packages/server/src/service.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 6,189-190,594-595
+  s_c2e17299d34d15::t_caf0533dc90f36 422-434
+  s_c2e17299d34d15::t_15ca20e04b3a32 26-29
+  s_c2e17299d34d15::t_c9953ff4837014 34
+  s_c2e17299d34d15::t_9fffebe0140583 1-5,7-25,30-33,35-188,191-421,435-593,596-1262
+packages/web/src/lib/components/StationExplorer.svelte
+  s_c2e17299d34d15::t_9190c17ebc017c 2
+packages/web/src/routes/live/+server.ts
+  s_c2e17299d34d15::t_992340d2a73609 1-29
+packages/server/src/data/amenity_namer.ts
+  s_c2e17299d34d15::t_58b49a701676c3 1-124
+packages/server/src/db/migrations/0000_skinny_wendell_vaughn.sql
+  s_c2e17299d34d15::t_40dc2b02885846 1-92
+packages/server/src/index.ts
+  s_c2e17299d34d15::t_15ca20e04b3a32 1-3
+  s_c2e17299d34d15::t_189ed569f42605 4-48
+packages/server/src/types/SummarisePricesOutput.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-18
+packages/server/test/config.test.ts
+  s_c2e17299d34d15::t_15ca20e04b3a32 25-27,54-57,64-73,81-89
+  s_c2e17299d34d15::t_29b3f750271243 1-24,28-53,58-63,74-80,90-93
+deploy/README.md
+  s_c2e17299d34d15::t_15ca20e04b3a32 94
+  s_c2e17299d34d15::t_97edaaa3ed2e2a 1-93,95-112
+packages/server/test/helpers.ts
+  s_c2e17299d34d15::t_bd9e71a6849081 1-24
+packages/server/src/data/web_query_helper.ts
+  s_c2e17299d34d15::t_39902a6c3cecb4 1-738
+packages/web/package.json
+  s_97b8f36f81b8b9::t_1742665db2105a 7-11,16,20,25,31
+packages/server/src/db/client.ts
+  s_c2e17299d34d15::t_f099c9d383ce76 1-3,5-73
+  s_c2e17299d34d15::t_15ca20e04b3a32 4
+deploy/petrol-baby-backup.service
+  s_c2e17299d34d15::t_fa89b292b5df91 1-14
+packages/server/src/cleanup/duplicates.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-154
+packages/server/src/db/helpers.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-31
+packages/server/src/types/ClosureType.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-4
+packages/server/src/cleanup/phone.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-187
+eslint.config.js
+  s_97b8f36f81b8b9::t_1742665db2105a 46
+packages/server/src/types/ObservedPricePoint.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-11
+packages/server/drizzle.config.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-5,7
+  s_c2e17299d34d15::t_8f610e43b5a4dc 6
+packages/web/src/app.d.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 10
+packages/server/src/types/PriceHistoryInput.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-28
+packages/server/src/types/PriceQueryArea.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-35
+README.md
+  s_97b8f36f81b8b9::t_1742665db2105a 3,7-10,12-15,22,26-27,37-39,41,43-44,46-51,53-54,58-59,70-72,74,77-78,81-84,88-91,93-101
+packages/server/src/cli/backfill.ts
+  s_c2e17299d34d15::t_be6da32f228489 1-38,40-55
+  s_c2e17299d34d15::t_846e239d86a12e 39
+packages/server/index.js
+  s_c2e17299d34d15::t_5263cf6ba900a7 1-11
+packages/server/test/mcp.test.ts
+  s_c2e17299d34d15::t_71be1f18c7234f 1-8,11-61,63-135,137-191,193-224
+  s_c2e17299d34d15::t_38f4ef41cb9e30 136,192
+  s_c2e17299d34d15::t_15ca20e04b3a32 9-10
+  s_c2e17299d34d15::t_21e7ef9880dbad 62
+packages/web/tsconfig.json
+  s_97b8f36f81b8b9::t_1742665db2105a 14-15
+packages/server/src/response.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-45
+packages/server/.env.example
+  s_97b8f36f81b8b9::t_1742665db2105a 8-11,24
+  s_c2e17299d34d15::t_ce07649ce943cc 1-7,12-23,25-28
+packages/server/tsconfig.json
+  s_c2e17299d34d15::t_9190c17ebc017c 28
+  s_97b8f36f81b8b9::t_1742665db2105a 1-4,6-27,29,31
+  s_c2e17299d34d15::t_4c23e4050eb87d 5,30
+packages/server/src/types/FuelFinderStationPrice.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-13
+packages/web/src/routes/station/[slug]/+page.server.ts
+  s_c2e17299d34d15::t_10653d20e93db1 5-6
+packages/web/src/routes/readyz/+server.ts
+  s_c2e17299d34d15::t_b63435a72f092f 1-18
+AGENTS.md
+  s_97b8f36f81b8b9::t_1742665db2105a 3,5-6,8-35,39-40,47,49-51,54-60,63-64
+packages/server/src/prompts/names.md
+  s_97b8f36f81b8b9::t_1742665db2105a 1-154
+packages/web/svelte.config.js
+  s_97b8f36f81b8b9::t_1742665db2105a 1
+packages/server/src/data/price_helper.ts
+  s_c2e17299d34d15::t_58b49a701676c3 1-212
+deploy/petrol-baby-backup.timer
+  s_c2e17299d34d15::t_0f273ed524eece 1-10
+packages/server/src/cleanup/id_map.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-47
+turbo.json
+  s_c2e17299d34d15::t_923735c2044685 41
+  s_97b8f36f81b8b9::t_1742665db2105a 4-5,8-12,37-40
+packages/web/src/hooks.server.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-2,4-10
+packages/web/src/routes/healthz/+server.ts
+  s_c2e17299d34d15::t_a9d49fc8f1e18a 1-15
+deploy/petrol-baby.service
+  s_c2e17299d34d15::t_ae1a8e4e6f4813 1-40
+packages/server/src/types/DataRegion.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-5
+packages/server/src/types/ListPricesOutput.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-15
+packages/server/src/types/NormalizedPriceQuery.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-16
+packages/server/src/types/PriceHistoryOutput.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-21
+packages/server/src/types/StationPriceResult.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-19
+packages/server/src/authenticated_fetch.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-24,26-57
+  s_c2e17299d34d15::t_31f4b0dbb86b68 25
+packages/web/src/routes/station/[slug]/+page.svelte
+  s_c2e17299d34d15::t_158f526126d270 23,36-49,53
+packages/server/src/db/migrations/meta/_journal.json
+  s_c2e17299d34d15::t_40dc2b02885846 1-13
+packages/server/src/cleanup/postcode.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-99
+packages/server/src/query/normalize_price_query.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-91
+packages/server/src/types/CorrectableStationData.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-92
+packages/server/src/types/KeyType.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-4
+packages/server/src/oauth.ts
+  s_c2e17299d34d15::t_1a5a0bc0657593 1-299
+packages/server/src/query/price_summary.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-286
+packages/web/src/routes/stations/+page.server.ts
+  s_c2e17299d34d15::t_10653d20e93db1 4,8
+packages/server/src/data/slug.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-99
+packages/server/src/db/migrations/meta/0000_snapshot.json
+  s_c2e17299d34d15::t_40dc2b02885846 1-629
+packages/server/src/cli/backup.ts
+  s_c2e17299d34d15::t_c5d619089ee311 1-17,19-75
+  s_c2e17299d34d15::t_15ca20e04b3a32 18,76-78
+packages/server/src/data/info_cleaner.ts
+  s_c2e17299d34d15::t_6c444c55f88262 1-18,20-391
+  s_c2e17299d34d15::t_15ca20e04b3a32 19
+packages/web/src/lib/server/backend.ts
+  s_c2e17299d34d15::t_d32d6a3c843f58 6-7,9-11,13-14,21,24-28,34
+packages/web/vite.config.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 7-18
+packages/web/src/routes/sitemap.xml/+server.ts
+  s_c2e17299d34d15::t_10653d20e93db1 16,24
+packages/server/src/db/schema.ts
+  s_c2e17299d34d15::t_b41b705e702328 1,3-6,9,11,13-18,53-84,91-93,98-156
+  s_c2e17299d34d15::t_15ca20e04b3a32 10,12
+  s_97b8f36f81b8b9::t_1742665db2105a 2,7-8,19-52,85-90,94-97
+packages/server/src/constants.ts
+  s_c2e17299d34d15::t_f5507a52881347 3,5-6,14-20
+  s_97b8f36f81b8b9::t_1742665db2105a 1-2,4,7-13
+packages/server/src/util/concurrency.ts
+  s_c2e17299d34d15::t_706a4f5834fb37 1-47
+packages/web/README.md
+  s_97b8f36f81b8b9::t_1742665db2105a 4,15,31,41
+packages/server/test/db.test.ts
+  s_c2e17299d34d15::t_16528004051292 78-79,81-88
+  s_c2e17299d34d15::t_09951eaf1839d0 1-77,80,89-95
+packages/web/src/routes/mcp/+server.ts
+  s_c2e17299d34d15::t_3e462f27c4723e 1-49
+packages/server/test/service.test.ts
+  s_c2e17299d34d15::t_869bafb5a7d215 1-2,9-74,81,88-107,113-172
+  s_c2e17299d34d15::t_15ca20e04b3a32 3-8,75-80,82-87,108-112
+packages/server/src/data/info_helper.ts
+  s_c2e17299d34d15::t_5eb479d87d4299 1-247
+.gitignore
+  s_97b8f36f81b8b9::t_1742665db2105a 7,41-45
+packages/server/src/types/FuelFinderStation.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-49
+packages/server/src/types/MedianSummary.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-23
+packages/server/src/types/StationOpeningDay.ts
+  s_97b8f36f81b8b9::t_1742665db2105a 1-10
+bun.lock
+  s_97b8f36f81b8b9::t_91acacc6603542 1-77,79,81,83,85,87,89,91,93,95,97,99,101,103,105,107,109,111,113,115,117,119,121,123,125,127,129,131,133,135,137,139,141,143,145,147,149,151,153,155,157,159,161,163,165,167,169,171,173,175,177,179,181,183,185,187,189,191,193,195,197,199,201,203,205,207,209,211,213,215,217,219,221,223,225,227,229,231,233,235,237,239,241,243,245,247,249,251,253,255,257,259,261,263,265,267,269,271,273,275,277,279,281,283,285,287,289,291,293,295,297,299,301,303,305,307,309,311,313,315,317,319,321,323,325,327,329,331,333,335,337,339,341,343,345,347,349,351,353,355,357,359,361,363,365,367,369,371,373,375,377,379,381,383,385,387,389,391,393,395,397,399,401,403,405,407,409,411,413,415,417,419,421,423,425,427,429,431,433,435,437,439,441,443,445,447,449,451,453,455,457,459,461,463,465,467,469,471,473,475,477,479,481,483,485,487,489,491,493,495,497,499,501,503,505,507,509,511,513,515,517,519,521,523,525,527,529,531,533,535,537,539,541,543,545,547,549,551,553,555,557,559,561,563,565,567,569,571,573,575,577,579,581,583,585,587,589,591,593,595,597,599,601,603,605,607,609,611,613,615,617,619,621,623,625,627,629,631,633,635,637,639,641,643,645,647,649,651,653,655,657,659,661,663,665,667,669,671,673,675,677,679,681,683,685,687,689,691,693,695,697,699,701,703,705,707,709,711,713,715,717,719,721,723,725,727,729,731,733,735,737,739,741,743,745,747,749,751,753,755,757,759,761,763,765,767,769,771-1055
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "a894025c01d17ff7785ff3b11ea60a394352dd25",
+  "prompts": {},
+  "sessions": {
+    "s_97b8f36f81b8b9": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0a44917c5ffegsDv2Nv8fzprWk",
+        "model": "openai/gpt-5.6-luna"
+      },
+      "human_author": "Shroom <68300730+ezShroom@users.noreply.github.com>"
+    },
+    "s_c2e17299d34d15": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0a71ccdc7ffeO9UixfYr4fSusr",
+        "model": "openai/gpt-5.6-sol"
+      },
+      "human_author": null
+    }
+  }
+}
