@@ -1,0 +1,26 @@
+packages/server/src/cli/backfill.ts
+  s_97b8f36f81b8b9::t_40cfa8640c2baf 30-36
+packages/server/src/config.ts
+  s_97b8f36f81b8b9::t_fcd771da99b599 76
+  s_97b8f36f81b8b9::t_0484840bcaf0f6 30-33
+packages/server/src/data/info_helper.ts
+  s_97b8f36f81b8b9::t_f5ec059763b758 210-212
+packages/server/test/config.test.ts
+  s_97b8f36f81b8b9::t_4b5786385ab324 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "47990ba0423a4984c12d1b2129589604d4aa778d",
+  "prompts": {},
+  "sessions": {
+    "s_97b8f36f81b8b9": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0a44917c5ffegsDv2Nv8fzprWk",
+        "model": "openai/gpt-5.6-luna"
+      },
+      "human_author": "Shroom <68300730+ezShroom@users.noreply.github.com>"
+    }
+  }
+}
