@@ -1,0 +1,37 @@
+src/mcp.ts
+  59588d263e3f9d08 10
+  f47e72f9065418f8 56-58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.3",
+  "base_commit_sha": "7246bdd2f344390633f3725523fd2904d3ac2476",
+  "prompts": {
+    "59588d263e3f9d08": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d49f4-8663-7703-8a7b-41c7a15dc211",
+        "model": "gpt-5.4"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "f47e72f9065418f8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d4a12-3129-7ca2-bf39-c4cef25e5d92",
+        "model": "gpt-5.4"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 17,
+      "total_deletions": 11,
+      "accepted_lines": 8,
+      "overriden_lines": 0
+    }
+  }
+}

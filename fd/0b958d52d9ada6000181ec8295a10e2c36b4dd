@@ -1,0 +1,23 @@
+src/db/helpers.ts
+  c7ca4c48b3347b69 29
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "fd0b958d52d9ada6000181ec8295a10e2c36b4dd",
+  "prompts": {
+    "c7ca4c48b3347b69": {
+      "agent_id": {
+        "tool": "cursor",
+        "id": "ee59f0aa-aa87-4961-a8c3-3ff40cf0d36d",
+        "model": "default"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 4,
+      "total_deletions": 6,
+      "accepted_lines": 1,
+      "overriden_lines": 3
+    }
+  }
+}

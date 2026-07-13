@@ -1,0 +1,23 @@
+src/mcp.ts
+  aac19e9b822daff3 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.3",
+  "base_commit_sha": "5fbf6e63c87a6d35aac812ffbdd954dd4f7888f8",
+  "prompts": {
+    "aac19e9b822daff3": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d4a41-a011-7250-8c85-68cfc4d2b6c9",
+        "model": "gpt-5.4"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}

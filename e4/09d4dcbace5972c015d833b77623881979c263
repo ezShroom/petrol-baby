@@ -1,0 +1,23 @@
+packages/web/src/routes/terms/+page.svelte
+  3d471ba9f2fb929e 61-70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.8",
+  "base_commit_sha": "e409d4dcbace5972c015d833b77623881979c263",
+  "prompts": {
+    "3d471ba9f2fb929e": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_277c5f872ffe959epG6CT7iomg",
+        "model": "openrouter/anthropic/claude-opus-4.6"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 10,
+      "total_deletions": 0,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    }
+  }
+}

@@ -1,0 +1,27 @@
+package.json
+  59588d263e3f9d08 13-14
+src/mcp.ts
+  59588d263e3f9d08 12,35-39,71
+tsconfig.json
+  59588d263e3f9d08 31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.3",
+  "base_commit_sha": "1326a2f14e5ea7f18ac1d9b8581457fdc60940e5",
+  "prompts": {
+    "59588d263e3f9d08": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d49f4-8663-7703-8a7b-41c7a15dc211",
+        "model": "gpt-5.4"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 12,
+      "total_deletions": 5,
+      "accepted_lines": 10,
+      "overriden_lines": 0
+    }
+  }
+}

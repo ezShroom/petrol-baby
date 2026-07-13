@@ -1,0 +1,27 @@
+src/mcp.ts
+  1995d81c0fb7986e 21,23,25,54,85,118
+src/oauth.ts
+  1995d81c0fb7986e 6-7,107-121,129,174-176,186,210-213
+src/patient_fetch.ts
+  1995d81c0fb7986e 1-28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.2.5",
+  "base_commit_sha": "d4c018381bf97d033a1d1d838308d7181cae355b",
+  "prompts": {
+    "1995d81c0fb7986e": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019d4dfb-de5a-7730-a1b5-8567b6487a4e",
+        "model": "gpt-5.4"
+      },
+      "human_author": "ezShroom",
+      "messages": [],
+      "total_additions": 225,
+      "total_deletions": 177,
+      "accepted_lines": 169,
+      "overriden_lines": 3
+    }
+  }
+}
