@@ -1,0 +1,21 @@
+packages/server/src/service.ts
+  s_97b8f36f81b8b9::t_84f3199a72cfd0 752-753,757,769-774
+  s_97b8f36f81b8b9::t_04ad67d58042a5 754-756
+  s_97b8f36f81b8b9::t_0c578fc2e3a130 1078-1080
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.12",
+  "base_commit_sha": "b91c27429eedc0149b6dbf95955af5f49558999d",
+  "prompts": {},
+  "sessions": {
+    "s_97b8f36f81b8b9": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0a44917c5ffegsDv2Nv8fzprWk",
+        "model": "openai/gpt-5.6-luna"
+      },
+      "human_author": "Shroom <68300730+ezShroom@users.noreply.github.com>"
+    }
+  }
+}
